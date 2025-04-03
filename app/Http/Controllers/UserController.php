@@ -13,33 +13,24 @@ use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
-    public function getProjects()
-    {
-        $user = auth()->user();
-        $proyectos = $user->proyectos()
-                   ->select('idProyecto', 'nombre','fecha_inicio','fecha_fin_estimada','fase')
-                   ->get();
-    
-        return response()->json($proyectos);
-    }
-
-    /**
-     * Get phases for a specific project
+        /**
+     * Get all projects with their phases for a client
      */
-    public function getProjectPhases($id)
+    public function getClientProjectsWithPhases()
     {
         $clientId = Auth::id();
-        $project = Proyecto::where('idProyecto', $id)
-                           ->where('idCliente', $clientId)
-                           ->first();
         
-        if (!$project) {
-            return response()->json(['message' => 'Proyecto no encontrado'], 404);
+        // Get all projects for this client
+        $projects = Proyecto::where('idCliente', $clientId)->get();
+        
+        // For each project, get its phases
+        foreach ($projects as $project) {
+            $project->fases = Fase::where('idProyecto', $project->idProyecto)
+                                ->orderBy('idFase', 'asc')
+                                ->get();
         }
         
-        $phases = Fase::where('idProyecto', $id)->orderBy('idFase', 'asc')->get();
-        
-        return response()->json($phases);
+        return response()->json($projects);
     }
     
         /**

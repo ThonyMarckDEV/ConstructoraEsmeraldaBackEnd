@@ -24,11 +24,8 @@ Route::post('/refresh', [AuthController::class, 'refresh']);
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
 Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () { 
 
-        // Get all projects for the client
-        Route::get('/client/projects', [UserController::class, 'getProjects']);
-        
-        // Get phases for a specific project
-        Route::get('/client/projects/{id}/phases', [UserController::class, 'getProjectPhases']);
+        // In api.php or your routes file
+        Route::get('/client/projects-with-phases', [UserController::class, 'getClientProjectsWithPhases']);
 
         // In api.php or your routes file
         Route::get('/client/projects/{id}/with-phases', [UserController::class, 'getProjectWithPhases']);
