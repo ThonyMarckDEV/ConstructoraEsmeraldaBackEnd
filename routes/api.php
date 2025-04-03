@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,4 +33,14 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 
         Route::get('/client/projects/{id}/details', [UserController::class, 'getProjectDetails']);
 
+});
+
+
+Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () { 
+    // Rutas de chat
+    Route::get('/chats', [ChatController::class, 'getChats']);
+    Route::get('/chats/{idChat}', [ChatController::class, 'getChat']);
+    Route::post('/chats/message', [ChatController::class, 'sendMessage']);
+    Route::post('/chats/create', [ChatController::class, 'createChat']);
+    Route::put('/chats/message/read/{idMensaje}', [ChatController::class, 'markMessageAsRead']);
 });
