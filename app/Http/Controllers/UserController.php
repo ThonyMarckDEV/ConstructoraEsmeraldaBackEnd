@@ -24,23 +24,6 @@ class UserController extends Controller
     }
 
     /**
-     * Get a specific project by ID
-     */
-    public function getProject($id)
-    {
-        $clientId = Auth::id();
-        $project = Proyecto::where('idProyecto', $id)
-                           ->where('idCliente', $clientId)
-                           ->first();
-        
-        if (!$project) {
-            return response()->json(['message' => 'Proyecto no encontrado'], 404);
-        }
-        
-        return response()->json($project);
-    }
-    
-    /**
      * Get phases for a specific project
      */
     public function getProjectPhases($id)
@@ -59,6 +42,32 @@ class UserController extends Controller
         return response()->json($phases);
     }
     
+        /**
+     * Get a specific project with its phases by ID
+     */
+    public function getProjectWithPhases($id)
+    {
+        $clientId = Auth::id();
+        
+        $project = Proyecto::where('idProyecto', $id)
+                        ->where('idCliente', $clientId)
+                        ->first();
+                
+        if (!$project) {
+            return response()->json(['message' => 'Proyecto no encontrado'], 404);
+        }
+        
+        $phases = Fase::where('idProyecto', $id)
+                    ->orderBy('idFase', 'asc')
+                    ->get();
+        
+        // Return combined data in a single response
+        return response()->json([
+            'proyecto' => $project,
+            'fases' => $phases
+        ]);
+    }
+
     /**
      * Get phases with files and photos for a specific project
      */

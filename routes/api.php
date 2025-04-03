@@ -27,11 +27,11 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
         // Get all projects for the client
         Route::get('/client/projects', [UserController::class, 'getProjects']);
         
-        // Get a specific project
-        Route::get('/client/projects/{id}', [UserController::class, 'getProject']);
-        
         // Get phases for a specific project
         Route::get('/client/projects/{id}/phases', [UserController::class, 'getProjectPhases']);
+
+        // In api.php or your routes file
+        Route::get('/client/projects/{id}/with-phases', [UserController::class, 'getProjectWithPhases']);
 
         Route::get('/client/projects/{id}/details', [UserController::class, 'getProjectDetails']);
 
