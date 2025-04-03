@@ -18,7 +18,16 @@ class CreateProyectosTable extends Migration
             $table->date('fecha_inicio');
             $table->date('fecha_fin_estimada');
             $table->enum('estado', ['En Progreso', 'Finalizado'])->default('En Progreso');
-            $table->string('fase', 100);
+            $table->enum('fase', [
+                'Planificación',
+                'Preparación del Terreno',
+                'Construcción de Cimientos',
+                'Estructura y Superestructura',
+                'Instalaciones',
+                'Acabados',
+                'Inspección y Pruebas',
+                'Entrega'
+            ]);
             $table->timestamps();
             
             // Definición de la claves foráneas
