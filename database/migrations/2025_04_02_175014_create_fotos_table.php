@@ -16,6 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('idFase');
             $table->enum('tipo', ['jpg', 'jpeg', 'png', 'avif', 'webp']);
             $table->string('ruta');
+            $table->text('descripcion');
             $table->timestamps();
         
             $table->foreign('idFase')->references('idFase')->on('fases');

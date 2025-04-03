@@ -14,7 +14,8 @@ class Archivo extends Model
     protected $fillable = [
         'idFase', 
         'tipo',
-        'ruta'
+        'ruta',
+        'descripcion'
     ];
 
     public function fase()

@@ -90,4 +90,9 @@ class User extends Authenticatable implements JWTSubject
             'username'=>$this->username,
         ];
     }
+
+    public function proyectos()
+    {
+        return $this->hasMany(Proyecto::class, 'idCliente', 'idUsuario');
+    }
 }

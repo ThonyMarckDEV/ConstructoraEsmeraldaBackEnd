@@ -25,6 +25,15 @@ Route::post('refresh', [AuthController::class, 'refresh']);
 // RUTAS PARA SUPERADMINISTRADOR VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
 Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () { 
 
-    Route::get('/user/info', [UserController::class, 'getInfo']);
+        // Get all projects for the client
+        Route::get('/client/projects', [UserController::class, 'getProjects']);
+        
+        // Get a specific project
+        Route::get('/client/projects/{id}', [UserController::class, 'getProject']);
+        
+        // Get phases for a specific project
+        Route::get('/client/projects/{id}/phases', [UserController::class, 'getProjectPhases']);
+
+        Route::get('/client/projects/{id}/details', [UserController::class, 'getProjectDetails']);
 
 });
