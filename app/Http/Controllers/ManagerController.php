@@ -424,79 +424,6 @@ class ManagerController extends Controller
         }
     }
 
-    // /**
-    //  * Sube un modelo 3D en formato GLB para un proyecto específico
-    //  *
-    //  * @param  \Illuminate\Http\Request  $request
-    //  * @return \Illuminate\Http\Response
-    //  */
-    // public function subirModelo(Request $request)
-    // {
-    //     // Validar la solicitud
-    //     $validator = Validator::make($request->all(), [
-    //         'idProyecto' => 'required|exists:proyectos,idProyecto',
-    //         'modelo' => 'required|file|max:51200', // 50MB max (51200KB)
-    //     ]);
-
-    //     // Add a custom validation after the initial validation
-    //     if (!$validator->fails()) {
-    //         $file = $request->file('modelo');
-    //         if ($file->getClientOriginalExtension() !== 'glb') {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Error de validación',
-    //                 'errors' => ['modelo' => ['The modelo field must be a file of type: glb.']]
-    //             ], 422);
-    //         }
-    //     }
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Error de validación',
-    //             'errors' => $validator->errors()
-    //         ], 422);
-    //     }
-
-    //     try {
-    //         // Buscar el proyecto
-    //         $proyecto = Proyecto::findOrFail($request->idProyecto);
-            
-    //         // Verificar si hay un modelo anterior para eliminarlo
-    //         if ($proyecto->modelo && Storage::disk('public')->exists($proyecto->modelo)) {
-    //             Storage::disk('public')->delete($proyecto->modelo);
-    //         }
-            
-    //         // Crear el directorio si no existe
-    //         $path = "proyectos/{$request->idProyecto}/modelo/";
-            
-    //         // Generar un nombre único para el archivo
-    //         $fileName = 'modelo_' . Str::random(10) . '_' . time() . '.glb';
-            
-    //         // Guardar el modelo en el sistema de archivos
-    //         $filePath = $request->file('modelo')->storeAs($path, $fileName, 'public');
-            
-    //         // Actualizar la ruta del modelo en la base de datos
-    //         $proyecto->modelo = $filePath;
-    //         $proyecto->save();
-            
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Modelo subido correctamente',
-    //             'data' => [
-    //                 'modelo_path' => Storage::url($filePath),
-    //                 'proyecto_id' => $proyecto->idProyecto
-    //             ]
-    //         ], 200);
-            
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Error al subir el modelo',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
 
         /**
      * Sube un modelo 3D en formato GLB para un proyecto específico
@@ -537,7 +464,7 @@ class ManagerController extends Controller
             $proyecto = Proyecto::findOrFail($request->idProyecto);
             
             // Crear el directorio si no existe
-            $path = "proyectos/{$request->idProyecto}/modelo/";
+            $path = "proyectos/{$request->idProyecto}/modelo";
             
             // Generar un nombre limpio para el archivo (minúsculas, sin caracteres especiales)
             $originalName = pathinfo($request->file('modelo')->getClientOriginalName(), PATHINFO_FILENAME);
@@ -579,33 +506,78 @@ class ManagerController extends Controller
      * @param  int  $idProyecto
      * @return \Illuminate\Http\Response
      */
+    // public function obtenerModelo($idProyecto)
+    // {
+    //     try {
+    //         $proyecto = Proyecto::findOrFail($idProyecto);
+            
+    //         if (!$proyecto->modelo) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'El proyecto no tiene un modelo 3D'
+    //             ], 404);
+    //         }
+            
+    //         return response()->json([
+    //             'success' => true,
+    //             'data' => [
+    //                 'modelo_path' => Storage::url($proyecto->modelo),
+    //                 'proyecto_id' => $proyecto->idProyecto
+    //             ]
+    //         ], 200);
+            
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Error al obtener el modelo',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function obtenerModelo($idProyecto)
     {
-        try {
-            $proyecto = Proyecto::findOrFail($idProyecto);
-            
-            if (!$proyecto->modelo) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El proyecto no tiene un modelo 3D'
-                ], 404);
-            }
-            
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'modelo_path' => Storage::url($proyecto->modelo),
-                    'proyecto_id' => $proyecto->idProyecto
-                ]
-            ], 200);
-            
-        } catch (\Exception $e) {
+        $proyecto = Proyecto::findOrFail($idProyecto);
+        
+        if (empty($proyecto->modelo)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al obtener el modelo',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'El proyecto no tiene modelo asociado'
+            ], 404);
         }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'modelo_path' => $proyecto->modelo,
+                'modelo_url' => url("api/manager/project/{$idProyecto}/modelo-file") // Nueva URL directa
+            ]
+        ]);
     }
+
+    public function descargarModelo($idProyecto)
+    {
+        $proyecto = Proyecto::findOrFail($idProyecto);
+        
+        $rutaModelo = storage_path('app/public/' . $proyecto->modelo);
+        
+        if (!file_exists($rutaModelo)) {
+            abort(404, 'Archivo de modelo no encontrado');
+        }
+
+        // Validar que es un GLB válido
+        $header = file_get_contents($rutaModelo, false, null, 0, 4);
+        if ($header !== 'glTF') {
+            abort(400, 'El archivo no es un GLB válido');
+        }
+
+        return response()->file($rutaModelo, [
+            'Content-Type' => 'model/gltf-binary',
+            'Access-Control-Allow-Origin' => config('app.frontend_url'), // Set specific origin
+            'Access-Control-Allow-Credentials' => 'true',
+            'Access-Control-Expose-Headers' => 'Content-Disposition'
+        ]);
+    }
+    
 
 }

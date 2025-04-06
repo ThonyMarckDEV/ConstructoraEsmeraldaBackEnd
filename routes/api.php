@@ -22,6 +22,8 @@ use App\Http\Controllers\ManagerController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
 
+Route::get('/manager/project/{id}/modelo-file', [ManagerController::class, 'descargarmodelo']);
+
 
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
 Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () { 
@@ -63,7 +65,18 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
         ->name('files.download');
 
         Route::post('/manager/project/subir-modelo', [ManagerController::class, 'subirModelo']);
-    
-        // Ruta para obtener modelos 3D
-        Route::get('/manager/project/{idProyecto}/modelo', [ManagerController::class, 'obtenerModelo']);
+
+  
 });
+
+
+// RUTAS PARA Roles cliente y manager
+Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () { 
+
+        Route::get('/manager/project/{id}/modelo', [ManagerController::class, 'obtenermodelo']);
+  
+});
+
+        
+
+
