@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('idArchivo');
             $table->string('nombre');
             $table->unsignedBigInteger('idFase');
-            $table->enum('tipo', ['pdf', 'xls', 'docx', 'dwg']);
+            $table->enum('tipo', ['pdf', 'xls', 'xlsx', 'doc', 'docx', 'dwg']);
             $table->string('ruta');
             $table->text('descripcion');
             $table->timestamps();

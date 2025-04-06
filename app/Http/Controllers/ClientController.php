@@ -9,6 +9,7 @@ use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ClientController extends Controller
@@ -119,6 +120,17 @@ class ClientController extends Controller
         ];
         
         return response()->json($response);
+    }
+
+    public function download(Request $request, $path)
+    {
+        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
+        if (Storage::disk('public')->exists($path)) {
+            // Retorna el archivo forzando la descarga
+            return Storage::disk('public')->download($path);
+        } else {
+            abort(404, 'Archivo no encontrado');
+        }
     }
 
 }

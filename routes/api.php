@@ -34,6 +34,10 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 
         Route::get('/client/project/{id}/details', [ClientController::class, 'getProjectDetails']);
 
+        Route::get('/client/project/files/download/{path}', [ClientController::class, 'download'])
+        ->where('path', '.*')
+        ->name('files.download');
+
 });
 
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
