@@ -1,10 +1,11 @@
 <?php
 
-use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ClientController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ManagerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,12 +27,12 @@ Route::post('/refresh', [AuthController::class, 'refresh']);
 Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () { 
 
         // In api.php or your routes file
-        Route::get('/client/projects-with-phases-client', [UserController::class, 'getClientProjectsWithPhasesClient']);
+        Route::get('/client/projects-with-phases', [ClientController::class, 'getClientProjectsWithPhases']);
 
         // In api.php or your routes file
-        Route::get('/client/project/{id}/with-phases', [UserController::class, 'getProjectWithPhases']);
+        Route::get('/client/project/{id}/with-phases', [ClientController::class, 'getProjectWithPhases']);
 
-        Route::get('/client/project/{id}/details', [UserController::class, 'getProjectDetails']);
+        Route::get('/client/project/{id}/details', [ClientController::class, 'getProjectDetails']);
 
 });
 
@@ -39,11 +40,10 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () { 
 
         // In api.php or your routes file
-        Route::get('/manager/projects-with-phases-manager', [UserController::class, 'getClientProjectsWithPhasesManager']);
+        Route::get('/manager/projects-with-phases', [ManagerController::class, 'getClientProjectsWithPhases']);
 
         // In api.php or your routes file
-        Route::get('/manager/projects/{id}/with-phases', [UserController::class, 'getProjectWithPhasesClient']);
+        Route::get('/manager/project/{id}/with-phases', [ManagerController::class, 'getProjectWithPhases']);
 
-        Route::get('/manager/projects/{id}/details', [UserController::class, 'getProjectDetails']);
-
+        Route::get('/manager/project/{id}/details', [ManagerController::class, 'getProjectDetails']);
 });
