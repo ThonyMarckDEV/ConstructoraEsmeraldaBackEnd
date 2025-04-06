@@ -101,7 +101,7 @@ class ClientController extends Controller
                             ->map(function ($photo) {
                                 return [
                                     'idFoto' => $photo->idFoto,
-                                    'ruta' => $photo->rutaFoto,
+                                    'ruta' => $photo->ruta,
                                     'tipo' => $photo->tipo,
                                     'descripcion' => $photo->descripcion
                                 ];

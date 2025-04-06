@@ -53,4 +53,8 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
         Route::post('/manager/project/fase/upload-file', [ManagerController::class, 'uploadFile']);
         Route::post('/manager/project/fase/upload-photo', [ManagerController::class, 'uploadPhoto']);
         Route::delete('/manager/project/files/delete', [ManagerController::class, 'deleteFile']);
+
+        Route::get('/manager/project/files/download/{path}', [ManagerController::class, 'download'])
+        ->where('path', '.*')
+        ->name('files.download');
 });

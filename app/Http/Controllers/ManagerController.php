@@ -103,7 +103,7 @@ class ManagerController extends Controller
                             ->map(function ($photo) {
                                 return [
                                     'idFoto' => $photo->idFoto,
-                                    'ruta' => $photo->rutaFoto,
+                                    'ruta' => $photo->ruta,
                                     'tipo' => $photo->tipo,
                                     'descripcion' => $photo->descripcion
                                 ];
@@ -409,6 +409,17 @@ class ManagerController extends Controller
                 'success' => false,
                 'message' => 'Error al eliminar el archivo: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function download(Request $request, $path)
+    {
+        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
+        if (Storage::disk('public')->exists($path)) {
+            // Retorna el archivo forzando la descarga
+            return Storage::disk('public')->download($path);
+        } else {
+            abort(404, 'Archivo no encontrado');
         }
     }
 
