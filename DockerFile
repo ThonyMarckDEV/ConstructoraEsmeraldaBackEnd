@@ -1,0 +1,83 @@
+# FROM php:8.2-fpm
+
+# # Install system dependencies and PHP extensions in a single layer, cleaning caches at the end
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     libpng-dev \
+#     libjpeg-dev \
+#     libfreetype6-dev \
+#     libzip-dev \
+#     unzip \
+#     git \
+#     && docker-php-ext-configure gd --with-freetype --with-jpeg \
+#     && docker-php-ext-install gd zip pdo pdo_mysql \
+#     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# # Set the working directory
+# WORKDIR /var/www
+
+# # Copy essential files for Composer and Laravel
+# COPY composer.json composer.lock artisan /var/www/
+# COPY bootstrap /var/www/bootstrap
+# COPY routes /var/www/routes
+
+# # Install Composer
+# RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# # Install PHP dependencies without development environment
+# RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# # Copy the rest of the application
+# COPY . .
+
+# # Adjust permissions for Laravel storage and cache directories
+# RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# # Modify PHP-FPM configuration to listen on port 8000 instead of the default 9000
+# RUN sed -i 's/listen = 8000/listen = 8000/' /usr/local/etc/php-fpm.d/www.conf
+
+# # Expose the application port
+# EXPOSE 8000
+
+# # Start PHP-FPM in the foreground
+# CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+
+FROM php:8.2-cli
+
+# Install system dependencies and PHP extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    unzip \
+    git \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd zip pdo pdo_mysql \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /var/www
+
+# Copy essential files for Composer and Laravel
+COPY composer.json composer.lock artisan /var/www/
+COPY bootstrap /var/www/bootstrap
+COPY routes /var/www/routes
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install PHP dependencies without development environment
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# Copy the rest of the application
+COPY . .
+
+# Adjust permissions for Laravel storage and cache directories
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# Expose the application port
+EXPOSE 8000
+
+# Start Laravel's PHP development server
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
