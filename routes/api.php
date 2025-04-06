@@ -61,4 +61,9 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
         Route::get('/manager/project/files/download/{path}', [ManagerController::class, 'download'])
         ->where('path', '.*')
         ->name('files.download');
+
+        Route::post('/manager/project/subir-modelo', [ManagerController::class, 'subirModelo']);
+    
+        // Ruta para obtener modelos 3D
+        Route::get('/manager/project/{idProyecto}/modelo', [ManagerController::class, 'obtenerModelo']);
 });
