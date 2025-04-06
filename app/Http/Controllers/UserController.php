@@ -13,10 +13,31 @@ use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
+
+         /**
+     * Get all projects with their phases for a client
+     */
+    public function getClientProjectsWithPhasesManager()
+    {
+        $managerId = Auth::id();
+        
+        // Get all projects for this client
+        $projects = Proyecto::where('idEncargado', $managerId)->get();
+        
+        // For each project, get its phases
+        foreach ($projects as $project) {
+            $project->fases = Fase::where('idProyecto', $project->idProyecto)
+                                ->orderBy('idFase', 'asc')
+                                ->get();
+        }
+        
+        return response()->json($projects);
+    }
+
         /**
      * Get all projects with their phases for a client
      */
-    public function getClientProjectsWithPhases()
+    public function getClientProjectsWithPhasesClient()
     {
         $clientId = Auth::id();
         

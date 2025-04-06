@@ -26,11 +26,24 @@ Route::post('/refresh', [AuthController::class, 'refresh']);
 Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () { 
 
         // In api.php or your routes file
-        Route::get('/client/projects-with-phases', [UserController::class, 'getClientProjectsWithPhases']);
+        Route::get('/client/projects-with-phases-client', [UserController::class, 'getClientProjectsWithPhasesClient']);
 
         // In api.php or your routes file
-        Route::get('/client/projects/{id}/with-phases', [UserController::class, 'getProjectWithPhases']);
+        Route::get('/client/project/{id}/with-phases', [UserController::class, 'getProjectWithPhases']);
 
-        Route::get('/client/projects/{id}/details', [UserController::class, 'getProjectDetails']);
+        Route::get('/client/project/{id}/details', [UserController::class, 'getProjectDetails']);
+
+});
+
+// RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
+Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () { 
+
+        // In api.php or your routes file
+        Route::get('/manager/projects-with-phases-manager', [UserController::class, 'getClientProjectsWithPhasesManager']);
+
+        // In api.php or your routes file
+        Route::get('/manager/projects/{id}/with-phases', [UserController::class, 'getProjectWithPhasesClient']);
+
+        Route::get('/manager/projects/{id}/details', [UserController::class, 'getProjectDetails']);
 
 });
