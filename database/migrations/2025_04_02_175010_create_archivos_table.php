@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('archivos', function (Blueprint $table) {
             $table->id('idArchivo');
+            $table->string('nombre');
             $table->unsignedBigInteger('idFase');
             $table->enum('tipo', ['pdf', 'xls', 'docx', 'dwg']);
             $table->string('ruta');

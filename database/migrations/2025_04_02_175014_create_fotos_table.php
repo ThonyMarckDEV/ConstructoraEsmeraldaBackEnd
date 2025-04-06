@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('fotos', function (Blueprint $table) {
             $table->id('idFoto');
+            $table->string('nombre');
             $table->unsignedBigInteger('idFase');
             $table->enum('tipo', ['jpg', 'jpeg', 'png', 'avif', 'webp']);
             $table->string('ruta');

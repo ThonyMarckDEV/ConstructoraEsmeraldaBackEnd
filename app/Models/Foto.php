@@ -13,6 +13,7 @@ class Foto extends Model
 
     protected $fillable = [
         'idFase',
+        'nombre',
         'tipo',
         'ruta',
         'descripcion'

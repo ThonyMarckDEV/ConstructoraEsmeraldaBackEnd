@@ -46,4 +46,11 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
         Route::get('/manager/project/{id}/with-phases', [ManagerController::class, 'getProjectWithPhases']);
 
         Route::get('/manager/project/{id}/details', [ManagerController::class, 'getProjectDetails']);
+
+        Route::put('/manager/project/update-phase/{id}', [ManagerController::class, 'updatePhase']);
+
+         // Rutas para subida de archivos y fotos
+        Route::post('/manager/project/fase/upload-file', [ManagerController::class, 'uploadFile']);
+        Route::post('/manager/project/fase/upload-photo', [ManagerController::class, 'uploadPhoto']);
+        Route::delete('/manager/project/files/delete', [ManagerController::class, 'deleteFile']);
 });
