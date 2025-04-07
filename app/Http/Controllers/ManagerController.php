@@ -417,18 +417,6 @@ class ManagerController extends Controller
         }
     }
 
-    public function download(Request $request, $path)
-    {
-        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
-        if (Storage::disk('public')->exists($path)) {
-            // Retorna el archivo forzando la descarga
-            return Storage::disk('public')->download($path);
-        } else {
-            abort(404, 'Archivo no encontrado');
-        }
-    }
-
-
         /**
      * Sube un modelo 3D en formato GLB para un proyecto específico
      *
@@ -443,25 +431,25 @@ class ManagerController extends Controller
             'modelo' => 'required|file|max:51200', // 50MB max (51200KB)
         ]);
         
-        // Add a custom validation after the initial validation
-        if (!$validator->fails()) {
-            $file = $request->file('modelo');
-            if ($file->getClientOriginalExtension() !== 'glb') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error de validación',
-                    'errors' => ['modelo' => ['The modelo field must be a file of type: glb.']]
-                ], 422);
-            }
-        }
+        // // Add a custom validation after the initial validation
+        // if (!$validator->fails()) {
+        //     $file = $request->file('modelo');
+        //     if ($file->getClientOriginalExtension() !== 'glb') {
+        //         return response()->json([
+        //             'success' => false,
+        //             'message' => 'Error de validación',
+        //             'errors' => ['modelo' => ['The modelo field must be a file of type: glb.']]
+        //         ], 422);
+        //     }
+        // }
         
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error de validación',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+        // if ($validator->fails()) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'Error de validación',
+        //         'errors' => $validator->errors()
+        //     ], 422);
+        // }
         
         try {
             // Buscar el proyecto
@@ -554,7 +542,7 @@ class ManagerController extends Controller
             'success' => true,
             'data' => [
                 'modelo_path' => $proyecto->modelo,
-                'modelo_url' => "https://ecommerceback.thonymarckdev.online/api/manager/project/{$idProyecto}/modelo-file" // Nueva URL directa
+                'modelo_url' => "https://constructora-esmeralda-backend.thonymarckdev.online/api/manager/project/{$idProyecto}/modelo-file" // Nueva URL directa
             ]
         ]);
     }
