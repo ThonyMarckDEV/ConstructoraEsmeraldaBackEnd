@@ -36,10 +36,6 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 
         Route::get('/client/project/{id}/details', [ClientController::class, 'getProjectDetails']);
 
-        Route::get('/client/project/files/download/{path}', [ClientController::class, 'download'])
-        ->where('path', '.*')
-        ->name('files.download');
-
 });
 
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
@@ -60,10 +56,6 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
         Route::post('/manager/project/fase/upload-photo', [ManagerController::class, 'uploadPhoto']);
         Route::delete('/manager/project/files/delete', [ManagerController::class, 'deleteFile']);
 
-        Route::get('/manager/project/files/download/{path}', [ManagerController::class, 'download'])
-        ->where('path', '.*')
-        ->name('files.download');
-
         Route::post('/manager/project/subir-modelo', [ManagerController::class, 'subirModelo']);
 
   
@@ -74,6 +66,10 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
 Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () { 
 
         Route::get('/manager/project/{id}/modelo', [ManagerController::class, 'obtenermodelo']);
+
+        Route::get('/project/files/download/{path}', [ClientController::class, 'download'])
+        ->where('path', '.*')
+        ->name('files.download');
   
 });
 

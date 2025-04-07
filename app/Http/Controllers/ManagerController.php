@@ -550,7 +550,7 @@ class ManagerController extends Controller
             'success' => true,
             'data' => [
                 'modelo_path' => $proyecto->modelo,
-                'modelo_url' => "http://ecommerceback.thonymarckdev.online/api/manager/project/{$idProyecto}/modelo-file" // Nueva URL directa
+                'modelo_url' => "https://ecommerceback.thonymarckdev.online/api/manager/project/{$idProyecto}/modelo-file" // Nueva URL directa
             ]
         ]);
     }
