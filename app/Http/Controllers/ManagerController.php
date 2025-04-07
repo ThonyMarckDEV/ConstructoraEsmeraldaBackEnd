@@ -17,15 +17,19 @@ use Illuminate\Support\Str;
 class ManagerController extends Controller
 {
 
-          /**
-     * Get all projects with their phases for a client
+    /**
+     * Get all projects with their phases for a manager, including client information
      */
-    public function getClientProjectsWithPhases()
+    public function getManagerProjectsWithPhases()
     {
         $encargadoId = Auth::id();
         
-        // Get all projects for this client
-        $projects = Proyecto::where('idEncargado', $encargadoId)->get();
+        // Get all projects for this manager with client information
+        $projects = Proyecto::where('idEncargado', $encargadoId)
+                        ->with(['cliente' => function($query) {
+                            $query->select('idUsuario', 'nombre', 'apellido');
+                        }])
+                        ->get();
         
         // For each project, get its phases
         foreach ($projects as $project) {

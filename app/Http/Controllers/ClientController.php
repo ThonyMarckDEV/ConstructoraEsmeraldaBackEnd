@@ -15,15 +15,20 @@ use Illuminate\Support\Facades\Validator;
 class ClientController extends Controller
 {
 
-        /**
-     * Get all projects with their phases for a client
+ 
+    /**
+     * Obtiene todos los proyectos de un cliente con sus fases y datos del encargado
      */
     public function getClientProjectsWithPhases()
     {
-        $clientId = Auth::id();
+        $clienteId = Auth::id();
         
-        // Get all projects for this client
-        $projects = Proyecto::where('idCliente', $clientId)->get();
+        // Get all projects for this manager with client information
+        $projects = Proyecto::where('idCliente', $clienteId)
+                        ->with(['encargado' => function($query) {
+                            $query->select('idUsuario', 'nombre', 'apellido');
+                        }])
+                        ->get();
         
         // For each project, get its phases
         foreach ($projects as $project) {

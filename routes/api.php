@@ -42,7 +42,7 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () { 
 
         // In api.php or your routes file
-        Route::get('/manager/projects-with-phases', [ManagerController::class, 'getClientProjectsWithPhases']);
+        Route::get('/manager/projects-with-phases', [ManagerController::class, 'getManagerProjectsWithPhases']);
 
         // In api.php or your routes file
         Route::get('/manager/project/{id}/with-phases', [ManagerController::class, 'getProjectWithPhases']);
