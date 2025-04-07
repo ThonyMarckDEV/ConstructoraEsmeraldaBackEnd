@@ -65,7 +65,7 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
 // RUTAS PARA Roles cliente y manager
 Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () { 
 
-        Route::get('/manager/project/{id}/modelo', [ManagerController::class, 'obtenermodelo']);
+        Route::get('/project/{id}/modelo', [ManagerController::class, 'obtenermodelo']);
 
         Route::get('/project/files/download/{path}', [ClientController::class, 'download'])
         ->where('path', '.*')
