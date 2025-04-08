@@ -417,60 +417,7 @@ class ManagerController extends Controller
         }
     }
 
-        /**
-     * Sube un modelo 3D en formato GLB para un proyecto específico
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function subirModelo(Request $request)
-    {
-        // Validar la solicitud
-        $validator = Validator::make($request->all(), [
-            'idProyecto' => 'required|exists:proyectos,idProyecto',
-            'modelo' => 'required|file|max:51200', // 50MB max (51200KB)
-        ]);
-        
-        try {
-            // Buscar el proyecto
-            $proyecto = Proyecto::findOrFail($request->idProyecto);
-            
-            // Crear el directorio si no existe
-            $path = "proyectos/{$request->idProyecto}/modelo";
-            
-            // Generar un nombre limpio para el archivo (minúsculas, sin caracteres especiales)
-            $originalName = pathinfo($request->file('modelo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
-            
-            // Verificar si hay un modelo anterior para eliminarlo
-            if ($proyecto->modelo && Storage::disk('public')->exists($proyecto->modelo)) {
-                Storage::disk('public')->delete($proyecto->modelo);
-            }
-            
-            // Guardar el modelo en el sistema de archivos
-            $filePath = $request->file('modelo')->storeAs($path, $cleanName, 'public');
-            
-            // Actualizar la ruta del modelo en la base de datos
-            $proyecto->modelo = $filePath;
-            $proyecto->save();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Modelo subido correctamente',
-                'data' => [
-                    'modelo_path' => Storage::url($filePath),
-                    'proyecto_id' => $proyecto->idProyecto
-                ]
-            ], 200);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al subir el modelo',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
+    
 
     public function obtenerModelo($idProyecto)
     {
@@ -495,20 +442,115 @@ class ManagerController extends Controller
     public function descargarModelo($idProyecto)
     {
         $proyecto = Proyecto::findOrFail($idProyecto);
-        
         $rutaModelo = storage_path('app/public/' . $proyecto->modelo);
-        
+    
         if (!file_exists($rutaModelo)) {
             abort(404, 'Archivo de modelo no encontrado');
         }
-
-
-        return response()->file($rutaModelo, [
+    
+        $response = response()->file($rutaModelo, [
             'Content-Type' => 'model/gltf-binary',
-            'Access-Control-Allow-Origin' => config('app.frontend_url'), // Set specific origin
-            'Access-Control-Allow-Credentials' => 'true',
-            'Access-Control-Expose-Headers' => 'Content-Disposition'
         ]);
+    
+        // Agrega los headers CORS
+        $response->headers->set('Access-Control-Allow-Origin', 'https://constructora-esmeralda-front-end.vercel.app');
+        $response->headers->set('Access-Control-Allow-Credentials', 'true');
+        $response->headers->set('Access-Control-Expose-Headers', 'Content-Disposition');
+    
+        return $response;
+    }
+    
+
+    public function subirModelo(Request $request)
+    {
+        Log::info('REQUEST HEADERS', getallheaders());
+        Log::info('Content-Type:', [$request->header('Content-Type')]);
+        Log::info('Raw Content:', [$request->getContent()]);
+
+        Log::info('File modelo:', [
+            'hasFile' => $request->hasFile('modelo'),
+            'file' => $request->file('modelo'),
+            'isValid' => $request->hasFile('modelo') ? $request->file('modelo')->isValid() : false,
+        ]);
+
+        // Verificar si el archivo está presente en la solicitud
+        if (!$request->hasFile('modelo') || !$request->file('modelo')->isValid()) {
+            Log::error('Archivo no válido o no recibido.', [
+                'hasFile' => $request->hasFile('modelo'),
+                'file' => $request->file('modelo')
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Archivo no válido o no recibido.'
+            ], 400);
+        }
+
+
+        // Validar la solicitud
+        $validator = Validator::make($request->all(), [
+            'idProyecto' => 'required|exists:proyectos,idProyecto',
+            'modelo' => 'required|file', // 50MB max (51200KB)
+        ]);
+
+        if ($validator->fails()) {
+            Log::error('Validación fallida.', ['errors' => $validator->errors()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación.',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Buscar el proyecto
+            $proyecto = Proyecto::findOrFail($request->idProyecto);
+            Log::info('Proyecto encontrado:', ['proyecto' => $proyecto]);
+
+            // Crear el directorio si no existe
+            $path = "proyectos/{$request->idProyecto}/modelo";
+            Log::info('Ruta del modelo:', ['path' => $path]);
+
+            // Generar un nombre limpio para el archivo (minúsculas, sin caracteres especiales)
+            $originalName = pathinfo($request->file('modelo')->getClientOriginalName(), PATHINFO_FILENAME);
+            $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
+            Log::info('Nombre limpio generado:', ['cleanName' => $cleanName]);
+
+            // Verificar si hay un modelo anterior para eliminarlo
+            if ($proyecto->modelo && Storage::disk('public')->exists($proyecto->modelo)) {
+                Log::info('Eliminando modelo anterior:', ['modelo' => $proyecto->modelo]);
+                Storage::disk('public')->delete($proyecto->modelo);
+            }
+
+            // Guardar el modelo en el sistema de archivos
+            $filePath = $request->file('modelo')->storeAs($path, $cleanName, 'public');
+            Log::info('Modelo guardado en:', ['filePath' => $filePath]);
+
+            // Actualizar la ruta del modelo en la base de datos
+            $proyecto->modelo = $filePath;
+            $proyecto->save();
+            Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $proyecto->modelo]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Modelo subido correctamente',
+                'data' => [
+                    'modelo_path' => Storage::url($filePath),
+                    'proyecto_id' => $proyecto->idProyecto
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error al subir el modelo.', [
+                'error' => $e->getMessage(),
+                'stack' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al subir el modelo',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
     
 
