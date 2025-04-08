@@ -33,7 +33,6 @@ class CheckRolesMW
             // Definir los roles permitidos manualmente
             $allowedRoles = ['admin','manager','cliente']; // Roles permitidos
 
-            // Log para verificar los roles permitidos y el rol del usuario
           //  Log::info('Roles permitidos: ' . implode(', ', $allowedRoles));
            // Log::info('Rol del usuario obtenido del token: ' . $userRole);
 
