@@ -431,26 +431,6 @@ class ManagerController extends Controller
             'modelo' => 'required|file|max:51200', // 50MB max (51200KB)
         ]);
         
-        // // Add a custom validation after the initial validation
-        // if (!$validator->fails()) {
-        //     $file = $request->file('modelo');
-        //     if ($file->getClientOriginalExtension() !== 'glb') {
-        //         return response()->json([
-        //             'success' => false,
-        //             'message' => 'Error de validación',
-        //             'errors' => ['modelo' => ['The modelo field must be a file of type: glb.']]
-        //         ], 422);
-        //     }
-        // }
-        
-        // if ($validator->fails()) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Error de validación',
-        //         'errors' => $validator->errors()
-        //     ], 422);
-        // }
-        
         try {
             // Buscar el proyecto
             $proyecto = Proyecto::findOrFail($request->idProyecto);
@@ -492,41 +472,6 @@ class ManagerController extends Controller
         }
     }
 
-    /**
-     * Obtiene la URL del modelo 3D de un proyecto
-     *
-     * @param  int  $idProyecto
-     * @return \Illuminate\Http\Response
-     */
-    // public function obtenerModelo($idProyecto)
-    // {
-    //     try {
-    //         $proyecto = Proyecto::findOrFail($idProyecto);
-            
-    //         if (!$proyecto->modelo) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'El proyecto no tiene un modelo 3D'
-    //             ], 404);
-    //         }
-            
-    //         return response()->json([
-    //             'success' => true,
-    //             'data' => [
-    //                 'modelo_path' => Storage::url($proyecto->modelo),
-    //                 'proyecto_id' => $proyecto->idProyecto
-    //             ]
-    //         ], 200);
-            
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Error al obtener el modelo',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     public function obtenerModelo($idProyecto)
     {
         $proyecto = Proyecto::findOrFail($idProyecto);
@@ -557,11 +502,6 @@ class ManagerController extends Controller
             abort(404, 'Archivo de modelo no encontrado');
         }
 
-        // Validar que es un GLB válido
-        $header = file_get_contents($rutaModelo, false, null, 0, 4);
-        if ($header !== 'glTF') {
-            abort(400, 'El archivo no es un GLB válido');
-        }
 
         return response()->file($rutaModelo, [
             'Content-Type' => 'model/gltf-binary',
