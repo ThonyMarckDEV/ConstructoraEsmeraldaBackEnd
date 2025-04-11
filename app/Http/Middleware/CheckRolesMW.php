@@ -3,9 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Tymon\JWTAuth\Facades\JWTAuth;
-use Exception;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class CheckRolesMW
 {
@@ -14,40 +12,30 @@ class CheckRolesMW
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
+     * @param  string  ...$roles
      * @return mixed
      */
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
-        try {
-            // Log del token recibido
-          //  Log::info('Token recibido:', ['token' => $request->header('Authorization')]);
-            
-            $token = JWTAuth::parseToken();
-            $payload = $token->getPayload();
-            
-            // Log del payload completo
-           // Log::info('Payload completo:', ['payload' => $payload->toArray()]);
-            
-            $userRole = $payload->get('rol');
-
-            // Definir los roles permitidos manualmente
-            $allowedRoles = ['admin','manager','cliente']; // Roles permitidos
-
-          //  Log::info('Roles permitidos: ' . implode(', ', $allowedRoles));
-           // Log::info('Rol del usuario obtenido del token: ' . $userRole);
-
-            // Verificar si el rol del usuario está dentro de los roles permitidos
-            if (!in_array($userRole, $allowedRoles)) {
-                // Log para ver los detalles del error
-             //   Log::info('Acceso denegado: El rol del usuario no coincide con los roles permitidos.');
-                return response()->json(['error' => 'Acceso denegado: El rol del usuario no coincide con los roles permitidos.'], 403);
-            }
-
-        } catch (Exception $e) {
-            return response()->json(['error' => 'Token inválido o no proporcionado.'], 401);
+        // Si no se pasan roles como parámetros, permitimos los roles cliente y manager por defecto
+        if (empty($roles)) {
+            $roles = ['cliente', 'admin' , 'manager'];
         }
 
-        // Si el rol es correcto, continuar con la solicitud
+        // Verificar que el usuario está autenticado y el payload está disponible
+        if (!$request->auth || !isset($request->auth->rol)) {
+            return response()->json([
+                'message' => 'No autorizado'
+            ], 403);
+        }
+
+        // Verificar si el rol del usuario está en la lista de roles permitidos
+        if (!in_array($request->auth->rol, $roles)) {
+            return response()->json([
+                'message' => 'Acceso denegado. Se requiere uno de estos roles: ' . implode(', ', $roles)
+            ], 403);
+        }
+
         return $next($request);
     }
 }

@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckRoleMW;
 use App\Http\Middleware\CheckRolesMW;
 use App\Http\Middleware\CorsMiddleware;
+use App\Http\Middleware\JWTAuthMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -22,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             //MIDDLEWARE PARA VERIFICAR ROL MULTIPLE
             'checkRolesMW' =>CheckRolesMW::class,
             //MIDDLEWARE PARA AUTH DEL TOKEN
-            'auth.jwt' =>\Tymon\JWTAuth\Http\Middleware\Authenticate::class,
+            'auth.jwt' =>JWTAuthMiddleware::class,
             //MIDDLEWARE CORS
             'cors' =>CorsMiddleware::class,
         ]);
