@@ -6,14 +6,17 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
+use Tymon\JWTAuth\Facades\JWTFactory;
+
 
 class AuthController extends Controller
 {
-    // Login del usuario
+   
     public function login(Request $request)
     {
         // Validar los datos de la solicitud
@@ -21,46 +24,76 @@ class AuthController extends Controller
             'username' => 'required|string',
             'password' => 'required|string',
         ]);
-
+        
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Datos inválidos',
                 'errors' => $validator->errors(),
             ], 400);
         }
-
+        
         // Buscar el usuario por su 'username'
         $user = User::where('username', $request->username)->first();
-
+        
         // Si el usuario no existe o la contraseña no es válida
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Usuario o contraseña incorrectos',
             ], 401);
         }
-
-        // Generar el token JWT para el usuario
-        $token = JWTAuth::fromUser($user);
         
-        // Obtener el tiempo de expiración desde la configuración
+        // Verificar si el estado del usuario es activo
+        if ($user->estado !== 'activo') {
+            return response()->json([
+                'message' => 'Error: estado del usuario inactivo',
+            ], 403);
+        }
+        
+        // Generar token de acceso con Firebase JWT
+        $now = time();
         $expiresIn = config('jwt.ttl') * 60;
+        $refreshTTL = config('jwt.refresh_ttl') * 60;
+        $secret = config('jwt.secret');
         
-        // Crear un token de refresco (usando el mismo TTL pero más largo)
-        $refreshTTL = config('jwt.refresh_ttl');
-
-        // Almacenar una reclamación personalizada que nos permita identificar este token como un refresh token
-        $refreshPayload = [
+        // Access token con custom claims del usuario
+        $accessPayload = [
+            'iss' => config('app.url'),
+            'iat' => $now,
+            'exp' => $now + $expiresIn,
+            'nbf' => $now,
+            'jti' => Str::random(16),
             'sub' => $user->idUsuario,
-            'type' => 'refresh',
-            'exp' => now()->addMinutes($refreshTTL)->timestamp
+            'prv' => sha1(config('app.key')),
+            // Custom claims del modelo usuario
+            'rol' => $user->rol,
+            'username' => $user->username,
+            // Otros atributos del usuario que quieras incluir
+            'nombre' => $user->nombre, 
+            'email' => $user->email
         ];
         
-        $refreshToken = JWTAuth::customClaims($refreshPayload)->fromUser($user);
-
+        // Refresh token (más simple, sin custom claims)
+        $refreshPayload = [
+            'iss' => config('app.url'),
+            'iat' => $now,
+            'exp' => $now + $refreshTTL,
+            'nbf' => $now,
+            'jti' => Str::random(16),
+            'sub' => $user->idUsuario,
+            'prv' => sha1(config('app.key')),
+            'type' => 'refresh',
+            // Custom claims del modelo usuario
+            'rol' => $user->rol,
+        ];
+        
+        // Generar tokens usando Firebase JWT
+        $accessToken = \Firebase\JWT\JWT::encode($accessPayload, $secret, 'HS256');
+        $refreshToken = \Firebase\JWT\JWT::encode($refreshPayload, $secret, 'HS256');
+        
         // Devolver la respuesta con los tokens
         return response()->json([
             'message' => 'Login exitoso',
-            'access_token' => $token,
+            'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
             'token_type' => 'bearer',
             'expires_in' => $expiresIn
@@ -83,21 +116,19 @@ class AuthController extends Controller
         }
 
         try {
-            // Establecer el token de refresco como el token actual
-            JWTAuth::setToken($request->refresh_token);
-            
-            // Verificar el token y obtener el payload
-            $payload = JWTAuth::getPayload();
+            // Verificar el token con Firebase JWT
+            $secret = config('jwt.secret');
+            $payload = \Firebase\JWT\JWT::decode($request->refresh_token, new \Firebase\JWT\Key($secret, 'HS256'));
             
             // Verificar que sea un token de refresco
-            if (!$payload->get('type') || $payload->get('type') !== 'refresh') {
+            if (!isset($payload->type) || $payload->type !== 'refresh') {
                 return response()->json([
                     'message' => 'El token proporcionado no es un token de refresco',
                 ], 401);
             }
             
             // Obtener el ID de usuario
-            $userId = $payload->get('sub');
+            $userId = $payload->sub;
             $user = User::find($userId);
             
             if (!$user) {
@@ -106,11 +137,29 @@ class AuthController extends Controller
                 ], 404);
             }
             
-            // Generar un nuevo token de acceso
-            $newToken = JWTAuth::fromUser($user);
-            
-            // Obtener el tiempo de expiración
+            // Generar un nuevo token de acceso con Firebase JWT
+            $now = time();
             $expiresIn = config('jwt.ttl') * 60;
+            
+            // Crear payload del token de acceso con custom claims del usuario
+            $accessPayload = [
+                'iss' => config('app.url'),
+                'iat' => $now,
+                'exp' => $now + $expiresIn,
+                'nbf' => $now,
+                'jti' => Str::random(16),
+                'sub' => $user->idUsuario,
+                'prv' => sha1(config('app.key')),
+                // Custom claims del usuario
+                'rol' => $user->rol,
+                'username' => $user->username,
+                // Otros atributos del usuario que quieras incluir
+                'nombre' => $user->nombre, 
+                'email' => $user->email
+            ];
+            
+            // Generar nuevo token de acceso usando Firebase JWT
+            $newToken = \Firebase\JWT\JWT::encode($accessPayload, $secret, 'HS256');
             
             return response()->json([
                 'message' => 'Token actualizado',
@@ -119,22 +168,23 @@ class AuthController extends Controller
                 'expires_in' => $expiresIn
             ], 200);
             
-        } catch (TokenExpiredException $e) {
+        } catch (\Firebase\JWT\ExpiredException $e) {
             return response()->json([
                 'message' => 'Refresh token expirado'
             ], 401);
-        } catch (TokenInvalidException $e) {
+        } catch (\Firebase\JWT\SignatureInvalidException $e) {
             return response()->json([
                 'message' => 'Refresh token inválido'
             ], 401);
-        } catch (JWTException $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error al procesar el token',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
-    
+
+
     // Método para cerrar sesión
     public function logout()
     {
@@ -150,39 +200,6 @@ class AuthController extends Controller
                 'message' => 'Error al cerrar sesión',
                 'error' => $e->getMessage()
             ], 500);
-        }
-    }
-    
-    // Método para obtener el usuario autenticado
-    public function me()
-    {
-        try {
-            // Obtener el usuario autenticado
-            $user = JWTAuth::parseToken()->authenticate();
-            
-            if (!$user) {
-                return response()->json([
-                    'message' => 'Usuario no encontrado'
-                ], 404);
-            }
-            
-            return response()->json([
-                'user' => $user
-            ], 200);
-            
-        } catch (TokenExpiredException $e) {
-            return response()->json([
-                'message' => 'Token expirado'
-            ], 401);
-        } catch (TokenInvalidException $e) {
-            return response()->json([
-                'message' => 'Token inválido'
-            ], 401);
-        } catch (JWTException $e) {
-            return response()->json([
-                'message' => 'Token no proporcionado',
-                'error' => $e->getMessage()
-            ], 401);
         }
     }
 }
