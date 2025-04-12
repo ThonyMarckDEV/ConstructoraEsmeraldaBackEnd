@@ -27,7 +27,9 @@ class ManagerController extends Controller
         // Get all projects for this manager with client information
         $projects = Proyecto::where('idEncargado', $encargadoId)
                         ->with(['cliente' => function($query) {
-                            $query->select('idUsuario', 'nombre', 'apellido');
+                            $query->select('idUsuario', 'idDatos', 'username');
+                        }, 'cliente.datos' => function($query) {
+                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
                         }])
                         ->get();
         
@@ -40,9 +42,9 @@ class ManagerController extends Controller
         
         return response()->json($projects);
     }
-    
-        /**
-     * Get a specific project with its phases by ID
+
+    /**
+     * Get a specific project with its phases by ID for a manager
      */
     public function getProjectWithPhases($id)
     {
@@ -50,6 +52,11 @@ class ManagerController extends Controller
         
         $project = Proyecto::where('idProyecto', $id)
                         ->where('idEncargado', $encargadoId)
+                        ->with(['cliente' => function($query) {
+                            $query->select('idUsuario', 'idDatos', 'username');
+                        }, 'cliente.datos' => function($query) {
+                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
+                        }])
                         ->first();
                 
         if (!$project) {
@@ -73,8 +80,11 @@ class ManagerController extends Controller
     public function getProjectDetails($id)
     {
         $encargadoId = Auth::id();
+        
+        // Update to include datos table
         $project = Proyecto::where('idProyecto', $id)
                         ->where('idEncargado', $encargadoId)
+                        ->with(['cliente.datos'])
                         ->first();
         
         if (!$project) {

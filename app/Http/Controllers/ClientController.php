@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Validator;
 class ClientController extends Controller
 {
 
- 
     /**
      * Obtiene todos los proyectos de un cliente con sus fases y datos del encargado
      */
@@ -23,10 +22,12 @@ class ClientController extends Controller
     {
         $clienteId = Auth::id();
         
-        // Get all projects for this manager with client information
+        // Get all projects for this client with manager information
         $projects = Proyecto::where('idCliente', $clienteId)
                         ->with(['encargado' => function($query) {
-                            $query->select('idUsuario', 'nombre', 'apellido');
+                            $query->select('idUsuario', 'idDatos', 'username');
+                        }, 'encargado.datos' => function($query) {
+                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
                         }])
                         ->get();
         
@@ -39,9 +40,9 @@ class ClientController extends Controller
         
         return response()->json($projects);
     }
-    
-        /**
-     * Get a specific project with its phases by ID
+
+    /**
+     * Get a specific project with its phases by ID for a client
      */
     public function getProjectWithPhases($id)
     {
@@ -49,6 +50,11 @@ class ClientController extends Controller
         
         $project = Proyecto::where('idProyecto', $id)
                         ->where('idCliente', $clientId)
+                        ->with(['encargado' => function($query) {
+                            $query->select('idUsuario', 'idDatos', 'username');
+                        }, 'encargado.datos' => function($query) {
+                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
+                        }])
                         ->first();
                 
         if (!$project) {
@@ -71,9 +77,16 @@ class ClientController extends Controller
      */
     public function getProjectDetails($id)
     {
-        $clientId = Auth::id();
+        // This method works for both client and manager, just need to check auth
+        $userId = Auth::id();
+        
+        // Find the project ensuring the current user is either client or manager
         $project = Proyecto::where('idProyecto', $id)
-                        ->where('idCliente', $clientId)
+                        ->where(function($query) use ($userId) {
+                            $query->where('idCliente', $userId)
+                                ->orWhere('idEncargado', $userId);
+                        })
+                        ->with(['cliente.datos', 'encargado.datos'])
                         ->first();
         
         if (!$project) {

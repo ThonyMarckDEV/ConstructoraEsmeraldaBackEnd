@@ -90,6 +90,7 @@ class AuthController extends Controller
             'prv' => sha1(config('app.key')),
             'type' => 'refresh',
             'rol' => $user->rol->nombre,
+            'username' => $user->username,
         ];
         
         // Generar tokens usando Firebase JWT
