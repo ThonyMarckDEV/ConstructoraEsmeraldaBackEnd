@@ -23,6 +23,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'username' => 'required|string',
             'password' => 'required|string',
+            'remember_me' => 'boolean',  // Si piden un refresh para ser recordado dura 7 dias
         ]);
         
         if ($validator->fails()) {
@@ -49,10 +50,16 @@ class AuthController extends Controller
             ], 403);
         }
         
-        // Generar token de acceso con Firebase JWT
+        // Generar token de acceso con Firebase JWT (5minutos)
         $now = time();
         $expiresIn = config('jwt.ttl') * 60;
-        $refreshTTL = config('jwt.refresh_ttl') * 60;
+
+
+        // Generar token de refresco si esta rememberMe
+        $rememberMe = $request->remember_me ?? false;
+        $refreshTTL = $rememberMe 
+            ? 7 * 24 * 60 * 60       // 7 days if remember_me is true
+            : 1 * 24 * 60 * 60;      // 1 day if remember_me is false
         $secret = config('jwt.secret');
         
         // Access token con custom claims del usuario
@@ -65,26 +72,24 @@ class AuthController extends Controller
             'sub' => $user->idUsuario,
             'prv' => sha1(config('app.key')),
             // Custom claims del modelo usuario
-            'rol' => $user->rol,
+            'rol' => $user->rol->nombre,
             'username' => $user->username,
             // Otros atributos del usuario que quieras incluir
-            'nombre' => $user->nombre, 
-            'email' => $user->email
+            'nombre' => $user->datos->nombre, 
+            'email' => $user->datos->email
         ];
         
         // Refresh token (más simple, sin custom claims)
         $refreshPayload = [
             'iss' => config('app.url'),
             'iat' => $now,
-            'exp' => $now + $refreshTTL,
+            'exp' => $now + $refreshTTL,  // Use the dynamic value here
             'nbf' => $now,
             'jti' => Str::random(16),
             'sub' => $user->idUsuario,
             'prv' => sha1(config('app.key')),
             'type' => 'refresh',
-            // Custom claims del modelo usuario
-            'rol' => $user->rol,
-            'username' => $user->username,
+            'rol' => $user->rol->nombre,
         ];
         
         // Generar tokens usando Firebase JWT
@@ -152,11 +157,11 @@ class AuthController extends Controller
                 'sub' => $user->idUsuario,
                 'prv' => sha1(config('app.key')),
                 // Custom claims del usuario
-                'rol' => $user->rol,
+                'rol' => $user->rol->nombre,
                 'username' => $user->username,
                 // Otros atributos del usuario que quieras incluir
-                'nombre' => $user->nombre, 
-                'email' => $user->email
+                'nombre' => $user->datos->nombre, 
+                'email' => $user->datos->email,
             ];
             
             // Generar nuevo token de acceso usando Firebase JWT

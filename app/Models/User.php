@@ -33,14 +33,8 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'username',
         'password',
-        'nombre',
-        'apellido',
-        'email',
-        'direccion',
-        'dni',
-        'ruc',
-        'telefono',
-        'rol',
+        'idDatos',
+        'idRol',
         'estado'
     ];
 
@@ -84,13 +78,31 @@ class User extends Authenticatable implements JWTSubject
      */
     public function getJWTCustomClaims()
     {
-        // Añadimos el rol en los claims del JWT
         return [
-            'rol' => $this->rol,  // Asumimos que el rol está en el atributo 'rol' del modelo
-            'username'=>$this->username,
+            'rol' => $this->rol()->first()->nombre,
+            'username' => $this->username,
         ];
     }
 
+    /**
+     * Relación con los datos personales
+     */
+    public function datos()
+    {
+        return $this->belongsTo(Datos::class, 'idDatos', 'idDatos');
+    }
+
+    /**
+     * Relación con el rol
+     */
+    public function rol()
+    {
+        return $this->belongsTo(Rol::class, 'idRol', 'idRol');
+    }
+
+    /**
+     * Relación con los proyectos
+     */
     public function proyectos()
     {
         return $this->hasMany(Proyecto::class, 'idCliente', 'idUsuario');
