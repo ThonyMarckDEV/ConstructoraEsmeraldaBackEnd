@@ -84,6 +84,7 @@ class AuthController extends Controller
             'type' => 'refresh',
             // Custom claims del modelo usuario
             'rol' => $user->rol,
+            'username' => $user->username,
         ];
         
         // Generar tokens usando Firebase JWT

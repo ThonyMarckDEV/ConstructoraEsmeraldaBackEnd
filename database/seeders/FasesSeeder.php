@@ -11,7 +11,7 @@ class FasesSeeder extends Seeder
 {
     public function run()
     {
-        $idProyecto = 2; // Cambia esto por el ID del proyecto deseado
+        $idProyecto = 1; // Cambia esto por el ID del proyecto deseado
         
         $fases = [
             ['nombreFase' => 'Planificación', 'descripcion' => 'Fase de planificación y diseño.'],
