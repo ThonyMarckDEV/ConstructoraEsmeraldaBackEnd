@@ -60,6 +60,7 @@ jobs:
       - name: 🔑 Set up SSH access
         run: |
           echo "${SERVER_SSH_PRIVATE_KEY}" > private_key.pem
+          file private_key.pem
           chmod 600 private_key.pem
       - name: 🚀 Deploy MicroService
         run: |
