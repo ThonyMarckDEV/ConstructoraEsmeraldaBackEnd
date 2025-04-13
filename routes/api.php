@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
@@ -61,6 +62,8 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
 
         Route::post('/manager/project/subir-modelo', [ManagerController::class, 'subirModelo']);
 
+         // Get projects analytics 
+        Route::get('/encargados/{idEncargado}/projects/analytics', [DashboardController::class ,'getAnalytics']);
   
 });
 

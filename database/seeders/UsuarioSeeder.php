@@ -1,5 +1,6 @@
 <?php
 
+// Database/Seeders/UsuarioSeeder.php
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -13,8 +14,8 @@ class UsuarioSeeder extends Seeder
     {
         $faker = Faker::create();
 
-        // Insert datos for cliente
-        $clienteDatosId = DB::table('datos')->insertGetId([
+        // Insert cliente fijo
+        $clienteDatosId1 = DB::table('datos')->insertGetId([
             'nombre' => 'Anthony Marck',
             'apellido' => 'Mendoza Sanchez',
             'email' => 'thonymarck385213xd@gmail.com',
@@ -26,7 +27,7 @@ class UsuarioSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // Insert datos for manager
+        // Insert manager
         $managerDatosId = DB::table('datos')->insertGetId([
             'nombre' => 'Pedro',
             'apellido' => 'Suarez Vertiz',
@@ -39,7 +40,24 @@ class UsuarioSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // Get role IDs
+        $clienteDatosIds = [$clienteDatosId1];
+
+        // Insert 3 clientes adicionales
+        for ($i = 0; $i < 3; $i++) {
+            $clienteDatosIds[] = DB::table('datos')->insertGetId([
+                'nombre' => $faker->firstName,
+                'apellido' => $faker->lastName,
+                'email' => $faker->unique()->safeEmail,
+                'direccion' => $faker->address,
+                'dni' => $faker->numerify('########'),
+                'ruc' => $faker->numerify('20#########'),
+                'telefono' => $faker->phoneNumber,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // Obtener roles
         $managerRolId = DB::table('roles')->where('nombre', 'manager')->value('idRol');
         $clienteRolId = DB::table('roles')->where('nombre', 'cliente')->value('idRol');
 
@@ -48,7 +66,7 @@ class UsuarioSeeder extends Seeder
             [
                 'username' => 'thonymarck',
                 'password' => Hash::make('12345678'),
-                'idDatos' => $clienteDatosId,
+                'idDatos' => $clienteDatosIds[0],
                 'idRol' => $clienteRolId,
                 'estado' => 'activo',
                 'created_at' => now(),
@@ -65,29 +83,16 @@ class UsuarioSeeder extends Seeder
             ],
         ]);
 
-        // // Generate 10 random clients
-        // for ($i = 0; $i < 1000; $i++) {
-        //     $clienteDatosId = DB::table('datos')->insertGetId([
-        //         'nombre' => $faker->firstName,
-        //         'apellido' => $faker->lastName,
-        //         'email' => $faker->unique()->safeEmail,
-        //         'direccion' => $faker->streetAddress,
-        //         'dni' => $faker->numerify('########'),
-        //         'ruc' => '20' . $faker->numerify('#########'),
-        //         'telefono' => $faker->numerify('9########'),
-        //         'created_at' => now(),
-        //         'updated_at' => now(),
-        //     ]);
-
-        //     DB::table('usuarios')->insert([
-        //         'username' => null,
-        //         'password' => null, 
-        //         'idDatos' => $clienteDatosId,
-        //         'idRol' => $clienteRolId,
-        //         'estado' => 'activo',
-        //         'created_at' => now(),
-        //         'updated_at' => now(),
-        //     ]);
-        // }
+        foreach (array_slice($clienteDatosIds, 1) as $i => $idDatos) {
+            DB::table('usuarios')->insert([
+                'username' => 'cliente' . ($i + 2),
+                'password' => Hash::make('12345678'),
+                'idDatos' => $idDatos,
+                'idRol' => $clienteRolId,
+                'estado' => 'activo',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }
