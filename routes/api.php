@@ -23,6 +23,8 @@ use App\Http\Controllers\AuthController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/refresh', [AuthController::class, 'refresh']);
 
+Route::post('/validate-refresh-token', [AuthController::class, 'validateRefreshToken']);
+
 Route::get('/manager/project/{id}/modelo-file', [ManagerController::class, 'descargarmodelo']);
 
 

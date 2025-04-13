@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->bigIncrements('idToken'); // ID personalizado
             $table->unsignedBigInteger('idUsuario'); // Usamos bigUnsignedInteger
             $table->foreign('idUsuario')->references('idUsuario')->on('usuarios')->onDelete('cascade'); // Relación con usuarios
-            $table->string('token', 64)->unique(); // Guardamos el refresh token
+            $table->text('refresh_token'); // Guardamos el refresh token
             $table->timestamp('expires_at')->nullable(); // Fecha de expiración
             $table->timestamps();
         });

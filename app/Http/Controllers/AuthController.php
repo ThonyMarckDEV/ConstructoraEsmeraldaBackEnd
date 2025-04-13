@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -53,8 +54,7 @@ class AuthController extends Controller
         // Generar token de acceso con Firebase JWT (5minutos)
         $now = time();
         $expiresIn = config('jwt.ttl') * 60;
-
-
+        
         // Generar token de refresco si esta rememberMe
         $rememberMe = $request->remember_me ?? false;
         $refreshTTL = $rememberMe 
@@ -97,13 +97,28 @@ class AuthController extends Controller
         $accessToken = \Firebase\JWT\JWT::encode($accessPayload, $secret, 'HS256');
         $refreshToken = \Firebase\JWT\JWT::encode($refreshPayload, $secret, 'HS256');
         
+        // Borrar cualquier token de refresco existente para este usuario
+        DB::table('refresh_tokens')->where('idUsuario', $user->idUsuario)->delete();
+        
+        // Insertar el nuevo token de refresco
+        $refreshTokenId = DB::table('refresh_tokens')->insertGetId([
+            'idUsuario' => $user->idUsuario,
+            'refresh_token' => $refreshToken,
+            'expires_at' => date('Y-m-d H:i:s', $now + $refreshTTL),
+            'created_at' => date('Y-m-d H:i:s', $now),
+            'updated_at' => date('Y-m-d H:i:s', $now)
+        ]);
+        
         // Devolver la respuesta con los tokens
         return response()->json([
             'message' => 'Login exitoso',
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
-            'token_type' => 'bearer',
-            'expires_in' => $expiresIn
+            //'token_type' => 'bearer',
+            //'expires_in' => $expiresIn,
+            //'idToken' => $accessToken,
+            //'idUsuario' => $user->idUsuario,
+            'idRefreshToken' => $refreshTokenId
         ], 200);
     }
 
@@ -189,6 +204,42 @@ class AuthController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    // In your AuthController.php
+    public function validateRefreshToken(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'refresh_token_id' => 'required',
+            'userID' => 'required'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Datos inválidos'
+            ], 400);
+        }
+
+        // Buscar el token en la base de datos
+        $refreshToken = DB::table('refresh_tokens')
+            ->where('idToken', $request->refresh_token_id)
+            ->where('idUsuario', $request->userID)
+            ->first();
+
+        // Si no existe o no coincide, significa que este token ya no es válido
+        // (posiblemente porque el usuario inició sesión en otro dispositivo)
+        if (!$refreshToken) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Token no válido o expirado'
+            ], 200);
+        }
+
+        return response()->json([
+            'valid' => true,
+            'message' => 'Token válido'
+        ], 200);
     }
 
 

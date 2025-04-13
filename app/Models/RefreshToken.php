@@ -15,7 +15,7 @@ class RefreshToken extends Model
 
     protected $fillable = [
         'idUsuario',
-        'token',
+        'refresh_token',
         'expires_at',
     ];
 
