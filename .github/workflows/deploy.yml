@@ -1,0 +1,86 @@
+name: Deploy Laravel-Constructora-Esmeralda-Backend to Server with Docker Hub
+
+on:
+  push:
+    branches:
+      - main   # Produccion
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+        with:
+          fetch-depth: 2 # Fetch the last 2 commits to check for changes
+
+      - name: 🔑 Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: 🔍 Check for changes
+        id: check_changes
+        run: |
+          echo "changed=$(git diff --name-only HEAD~1 HEAD || true)" >> $GITHUB_ENV
+      
+      - name: 🏗 Build and push Docker image
+        if: env.changed != ''
+        run: |
+          docker build -t ${DOCKERHUB_USERNAME}/constructora-esmeralda-backend-image:latest .
+          docker push ${DOCKERHUB_USERNAME}/constructora-esmeralda-backend-image:latest
+          
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push  # Run only after Docker image is pushed
+    
+    env:
+      HOST: ${{ secrets.HOST }}                    # Host server
+      SERVER_USER: ${{ secrets.SERVER_USER }}      # SSH user
+      CLOUDFLARED_URL: ${{ secrets.CLOUDFLARED_URL }} # Cloudflare binary download URL
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}          # GitHub Personal Access Token for cloning repositories
+      GIST_ID: ${{ secrets.GIST_ID }}              # Gist ID containing the .env file for the API
+      SERVER_SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    
+    steps:
+      - name: Install cloudflared
+        run: |
+          echo "Downloading cloudflared from ${CLOUDFLARED_URL}"
+          curl -L ${CLOUDFLARED_URL} -o cloudflared
+          file cloudflared  # Verifica el tipo de archivo descargado
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/
+      - name: Verify cloudflared installation
+        run: cloudflared --version
+
+      - name: 🔑 Set up SSH access
+        run: |
+          echo "${SERVER_SSH_PRIVATE_KEY}" > private_key.pem
+          chmod 600 private_key.pem
+      - name: 🚀 Deploy MicroService
+        run: |
+          ssh -o StrictHostKeyChecking=no -i private_key.pem -o ProxyCommand="cloudflared access ssh --hostname ${HOST}" ${SERVER_USER}@${HOST} << EOF
+          # Create network if it doesn't exist
+          docker network ls | grep red_constructora || docker network create red_constructora
+          # Download .env from private Gist using GitHub PAT and Secret GIST_ID
+          curl -H "Authorization: token ${PAT_TOKEN}" \
+               -o /home/qromarck/enviroments/constructora.env \
+               https://gist.githubusercontent.com/ThonyMarckDEV/${GIST_ID}/raw
+          if [ ! -s /home/qromarck/enviroments/constructora.env ]; then
+            echo "❌ Error: .env file is empty or failed to download!"
+            exit 1
+          fi
+          chmod 600 home/qromarck/enviroments/constructora.env
+          echo "🐳 Pulling latest Docker image..."
+          docker pull ${DOCKERHUB_USERNAME}/constructora-esmeralda-backend-image:latest
+          echo "🛑 Stopping and removing old container..."
+          docker stop constructora-esmeralda-backend-container || true
+          docker rm constructora-esmeralda-backend-container || true
+          echo "🚀 Starting new container..."
+          docker run --env-file /home/qromarck/enviroments/constructora.env --name constructora-esmeralda-backend-container --restart always --network red_constructora -p 8000:8000 -d thonymarckdev/constructora-esmeralda-backend-image:latest
+          echo "✅ Deployment successful!"
+          EOF
