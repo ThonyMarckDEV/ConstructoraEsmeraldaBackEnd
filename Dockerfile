@@ -32,10 +32,11 @@ COPY . .
 # Adjust permissions for Laravel storage and cache directories
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Entrypoint que corre migraciones si no se han ejecutado
+# Entrypoint que corre migraciones, crea enlace simbólico y arranca el servidor
 RUN echo '#!/bin/bash\n\
 php artisan config:clear\n\
 php artisan migrate --force || true\n\
+php artisan storage:link || true\n\
 php artisan config:cache\n\
 php artisan serve --host=0.0.0.0 --port=8000' > /entrypoint.sh && chmod +x /entrypoint.sh
 
