@@ -42,4 +42,6 @@ php artisan serve --host=0.0.0.0 --port=8000' > /entrypoint.sh && chmod +x /entr
 
 EXPOSE 8000
 
+# Opcionalmente antes del ENTRYPOINT o CMD
+RUN echo "upload_max_filesize=100M\npost_max_size=100M\nmax_file_uploads=20" > /usr/local/etc/php/conf.d/uploads.ini
 CMD ["/entrypoint.sh"]
