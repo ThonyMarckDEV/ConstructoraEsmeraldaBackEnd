@@ -20,7 +20,7 @@ class CorsMiddleware
                 ->header('Access-Control-Allow-Origin', $origin)
                 ->header('Access-Control-Allow-Methods', '*')
                 ->header('Access-Control-Allow-Headers', '*')
-                ->header('Access-Control-Allow-Credentials', 'true');
+                ->header('Access-Control-Allow-Credentials', 'false');
         }
 
         return $next($request);
