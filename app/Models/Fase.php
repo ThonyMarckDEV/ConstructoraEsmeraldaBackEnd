@@ -20,7 +20,7 @@ class Fase extends Model
         'descripcion',
         'fecha_inicio',
         'fecha_fin',
-        'modelo'
+        'modelo',
     ];
 
     public function proyecto()

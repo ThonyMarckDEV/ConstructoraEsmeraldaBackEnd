@@ -25,7 +25,7 @@ class CreateFasesTable extends Migration
             $table->text('descripcion')->nullable();
             $table->date('fecha_inicio')->nullable();
             $table->date('fecha_fin')->nullable();
-            $table->string('modelo');
+            $table->string('modelo')->nullable();
             $table->timestamps();
             
             // Definición de la clave foránea
