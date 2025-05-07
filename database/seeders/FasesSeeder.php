@@ -33,6 +33,7 @@ class FasesSeeder extends Seeder
                     'descripcion' => $fase['descripcion'],
                     'fecha_inicio' => now(),
                     'fecha_fin' => now()->addDays(30),
+                    'modelo'=>null,
                     'created_at' => Carbon::now(),
                     'updated_at' => Carbon::now()
                 ]);

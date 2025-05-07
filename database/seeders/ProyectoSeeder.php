@@ -34,7 +34,6 @@ class ProyectoSeeder extends Seeder
                 'fecha_fin_estimada' => now()->addMonths(6),
                 'estado' => 'en progreso',
                 'fase' => 'Planificación',
-                'modelo' => 'Modelo estándar',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
