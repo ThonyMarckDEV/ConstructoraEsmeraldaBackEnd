@@ -488,13 +488,6 @@ class ManagerController extends Controller
     {
         Log::info('REQUEST HEADERS', getallheaders());
         Log::info('Content-Type:', [$request->header('Content-Type')]);
-        Log::info('Raw Content:', [$request->getContent()]);
-
-        Log::info('File modelo:', [
-            'hasFile' => $request->hasFile('modelo'),
-            'file' => $request->file('modelo'),
-            'isValid' => $request->hasFile('modelo') ? $request->file('modelo')->isValid() : false,
-        ]);
 
         // Verificar si el archivo está presente en la solicitud
         if (!$request->hasFile('modelo') || !$request->file('modelo')->isValid()) {
@@ -508,15 +501,35 @@ class ManagerController extends Controller
             ], 400);
         }
 
+        // Log file details
+        $file = $request->file('modelo');
+        Log::info('File modelo:', [
+            'hasFile' => $request->hasFile('modelo'),
+            'filename' => $file->getClientOriginalName(),
+            'mime_type' => $file->getClientMimeType(),
+            'extension' => $file->getClientOriginalExtension(),
+            'size' => $file->getSize(),
+            'isValid' => $file->isValid(),
+        ]);
 
         // Validar la solicitud
         $validator = Validator::make($request->all(), [
             'idProyecto' => 'required|exists:proyectos,idProyecto',
-            'modelo' => 'required|file', // 50MB max (51200KB)
+            'idFase' => 'required|exists:fases,idFase',
+            'modelo' => [
+                'required',
+                'file',
+                'max:51200', // 50MB max
+                function ($attribute, $value, $fail) {
+                    if (strtolower($value->getClientOriginalExtension()) !== 'glb') {
+                        $fail('El archivo debe ser de tipo .glb.');
+                    }
+                },
+            ],
         ]);
 
         if ($validator->fails()) {
-            Log::error('Validación fallida.', ['errors' => $validator->errors()]);
+            Log::error('Validación fallida.', ['errors' => $validator->errors()->toArray()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Errores de validación.',
@@ -525,40 +538,47 @@ class ManagerController extends Controller
         }
 
         try {
-            // Buscar el proyecto
+            // Buscar el proyecto y la fase
             $proyecto = Proyecto::findOrFail($request->idProyecto);
-            Log::info('Proyecto encontrado:', ['proyecto' => $proyecto]);
+            $fase = Fase::where('idFase', $request->idFase)
+                        ->where('idProyecto', $request->idProyecto)
+                        ->firstOrFail();
+            Log::info('Proyecto y fase encontrados:', [
+                'proyecto' => $proyecto->idProyecto,
+                'fase' => $fase->idFase
+            ]);
 
             // Crear el directorio si no existe
-            $path = "proyectos/{$request->idProyecto}/modelo";
+            $path = "proyectos/{$request->idProyecto}/fases/{$request->idFase}/modelo";
             Log::info('Ruta del modelo:', ['path' => $path]);
 
-            // Generar un nombre limpio para el archivo (minúsculas, sin caracteres especiales)
-            $originalName = pathinfo($request->file('modelo')->getClientOriginalName(), PATHINFO_FILENAME);
+            // Generar un nombre limpio para el archivo
+            $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
             Log::info('Nombre limpio generado:', ['cleanName' => $cleanName]);
 
             // Verificar si hay un modelo anterior para eliminarlo
-            if ($proyecto->modelo && Storage::disk('public')->exists($proyecto->modelo)) {
-                Log::info('Eliminando modelo anterior:', ['modelo' => $proyecto->modelo]);
-                Storage::disk('public')->delete($proyecto->modelo);
+            if ($fase->modelo && Storage::disk('public')->exists($fase->modelo)) {
+                Log::info('Eliminando modelo anterior:', ['modelo' => $fase->modelo]);
+                Storage::disk('public')->delete($fase->modelo);
             }
 
             // Guardar el modelo en el sistema de archivos
-            $filePath = $request->file('modelo')->storeAs($path, $cleanName, 'public');
+            $filePath = $file->storeAs($path, $cleanName, 'public');
             Log::info('Modelo guardado en:', ['filePath' => $filePath]);
 
             // Actualizar la ruta del modelo en la base de datos
-            $proyecto->modelo = $filePath;
-            $proyecto->save();
-            Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $proyecto->modelo]);
+            $fase->modelo = $filePath;
+            $fase->save();
+            Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Modelo subido correctamente',
                 'data' => [
                     'modelo_path' => Storage::url($filePath),
-                    'proyecto_id' => $proyecto->idProyecto
+                    'idProyecto' => $proyecto->idProyecto,
+                    'idFase' => $fase->idFase
                 ]
             ], 200);
 
@@ -575,6 +595,4 @@ class ManagerController extends Controller
             ], 500);
         }
     }
-    
-
 }
