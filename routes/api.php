@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\UserController;
@@ -26,7 +27,7 @@ Route::post('/refresh', [AuthController::class, 'refresh']);
 
 Route::post('/validate-refresh-token', [AuthController::class, 'validateRefreshToken']);
 
-Route::get('/manager/project/{id}/modelo-file', [ManagerController::class, 'descargarmodelo']);
+Route::get('/manager/project/{id}/{idFase}/modelo-file', [ManagerController::class, 'descargarmodelo']);
 
 
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
@@ -67,11 +68,25 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
   
 });
 
+// RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
+Route::middleware(['auth.jwt', 'checkRoleMW:admin'])->group(function () { 
+
+         // Client routes
+        Route::get('/admin/clientes', [ClienteController::class, 'index']);
+        Route::post('/admin/clientes', [ClienteController::class, 'store']);
+        Route::get('/admin/clientes/{id}', [ClienteController::class, 'show']);
+        Route::put('/admin/clientes/{id}', [ClienteController::class, 'update']);
+        Route::delete('/admin/clientes/{id}', [ClienteController::class, 'destroy']);
+
+  
+});
+
+
 
 // RUTAS PARA Roles cliente y manager
 Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () { 
 
-        Route::get('/project/{id}/modelo', [ManagerController::class, 'obtenermodelo']);
+        Route::get('/project/{idproyecto}/{idfase}/modelo', [ManagerController::class, 'obtenermodelo']);
 
         Route::get('/project/files/download/{path}', [ClientController::class, 'download'])
         ->where('path', '.*')

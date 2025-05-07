@@ -429,30 +429,43 @@ class ManagerController extends Controller
 
     
 
-    public function obtenerModelo($idProyecto)
+    public function obtenerModelo($idProyecto, $idFase)
     {
+        // Find the project to ensure it exists
         $proyecto = Proyecto::findOrFail($idProyecto);
         
-        if (empty($proyecto->modelo)) {
+        // Find the phase and its model
+        $fase = Fase::where('idFase', $idFase)
+                    ->where('idProyecto', $idProyecto)
+                    ->firstOrFail();
+        
+        if (empty($fase->modelo)) {
             return response()->json([
                 'success' => false,
-                'message' => 'El proyecto no tiene modelo asociado'
+                'message' => 'La fase no tiene modelo asociado'
             ], 404);
         }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'modelo_path' => $proyecto->modelo,
-                'modelo_url' => "https://constructora-esmeralda-backend.thonymarckdev.online/api/manager/project/{$idProyecto}/modelo-file" // Nueva URL directa
+                'modelo_path' => $fase->modelo,
+                'modelo_url' => "http://localhost:8000/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
             ]
         ]);
     }
 
-    public function descargarModelo($idProyecto)
+    public function descargarModelo($idProyecto, $idFase)
     {
+        // Find the project to ensure it exists
         $proyecto = Proyecto::findOrFail($idProyecto);
-        $rutaModelo = storage_path('app/public/' . $proyecto->modelo);
+        
+        // Find the phase and its model
+        $fase = Fase::where('idFase', $idFase)
+                    ->where('idProyecto', $idProyecto)
+                    ->firstOrFail();
+        
+        $rutaModelo = storage_path('app/public/' . $fase->modelo);
     
         if (!file_exists($rutaModelo)) {
             abort(404, 'Archivo de modelo no encontrado');
@@ -462,8 +475,8 @@ class ManagerController extends Controller
             'Content-Type' => 'model/gltf-binary',
         ]);
     
-        // Agrega los headers CORS
-        $response->headers->set('Access-Control-Allow-Origin', 'https://constructora-esmeralda-front-end.vercel.app');
+        // Add CORS headers
+        $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
         $response->headers->set('Access-Control-Expose-Headers', 'Content-Disposition');
     
