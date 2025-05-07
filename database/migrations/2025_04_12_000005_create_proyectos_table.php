@@ -28,7 +28,6 @@ class CreateProyectosTable extends Migration
                 'Inspección y Pruebas',
                 'Entrega'
             ]);
-            $table->string('modelo');
             $table->timestamps();
             
             // Definición de la claves foráneas
