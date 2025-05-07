@@ -21,8 +21,7 @@ class Proyecto extends Model
         'fecha_inicio',
         'fecha_fin_estimada',
         'estado',
-        'fase',
-        'modelo'
+        'fase'
     ];
 
     /**
