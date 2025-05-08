@@ -32,6 +32,8 @@ class ProyectoController extends Controller
             'fecha_fin_estimada' => 'required|date|after_or_equal:fecha_inicio',
             'estado' => 'required|in:En Progreso,Finalizado',
             'fase' => 'required|in:Planificación,Preparación del Terreno,Construcción de Cimientos,Estructura y Superestructura,Instalaciones,Acabados,Inspección y Pruebas,Entrega',
+            'idEncargado' => 'required|exists:usuarios,idUsuario',
+            'idCliente' => 'required|exists:usuarios,idUsuario',
             'fases' => 'nullable|array',
             'fases.*.nombreFase' => 'required|in:Planificación,Preparación del Terreno,Construcción de Cimientos,Estructura y Superestructura,Instalaciones,Acabados,Inspección y Pruebas,Entrega',
             'fases.*.fecha_inicio' => 'nullable|date',
@@ -46,6 +48,13 @@ class ProyectoController extends Controller
         try {
             DB::beginTransaction();
 
+            $encargado = User::where('idUsuario', $request->idEncargado)
+                ->where('idRol', 3) // idRol 3 = manager
+                ->firstOrFail();
+            $cliente = User::where('idUsuario', $request->idCliente)
+                ->where('idRol', 2) // idRol 2 = cliente
+                ->firstOrFail();
+
             $proyecto = Proyecto::create([
                 'nombre' => $request->nombre,
                 'descripcion' => $request->descripcion,
@@ -53,6 +62,8 @@ class ProyectoController extends Controller
                 'fecha_fin_estimada' => $request->fecha_fin_estimada,
                 'estado' => $request->estado,
                 'fase' => $request->fase,
+                'idEncargado' => $request->idEncargado,
+                'idCliente' => $request->idCliente,
             ]);
 
             if ($request->has('fases')) {
@@ -60,8 +71,6 @@ class ProyectoController extends Controller
                     if ($faseData['fecha_inicio'] || $faseData['fecha_fin'] || $faseData['descripcion']) {
                         Fase::create([
                             'idProyecto' => $proyecto->idProyecto,
-                            'idEncargado'=>null,
-                            'idCliente'=>null,
                             'nombreFase' => $faseData['nombreFase'],
                             'fecha_inicio' => $faseData['fecha_inicio'],
                             'fecha_fin' => $faseData['fecha_fin'],
@@ -71,8 +80,14 @@ class ProyectoController extends Controller
                 }
             }
 
+            Chat::create([
+                'idCliente' => $request->idCliente,
+                'idEncargado' => $request->idEncargado,
+                'idProyecto' => $proyecto->idProyecto,
+            ]);
+
             DB::commit();
-            return response()->json(['message' => 'Proyecto creado exitosamente', 'proyecto' => $proyecto->load(['fases'])], 201);
+            return response()->json(['message' => 'Proyecto creado exitosamente', 'proyecto' => $proyecto->load(['fases', 'encargado.datos', 'cliente.datos'])], 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Error al crear proyecto: ' . $e->getMessage()], 500);
@@ -89,6 +104,8 @@ class ProyectoController extends Controller
             'fecha_fin_estimada' => 'required|date|after_or_equal:fecha_inicio',
             'estado' => 'required|in:En Progreso,Finalizado',
             'fase' => 'required|in:Planificación,Preparación del Terreno,Construcción de Cimientos,Estructura y Superestructura,Instalaciones,Acabados,Inspección y Pruebas,Entrega',
+            'idEncargado' => 'required|exists:usuarios,idUsuario',
+            'idCliente' => 'required|exists:usuarios,idUsuario',
             'fases' => 'nullable|array',
             'fases.*.nombreFase' => 'required|in:Planificación,Preparación del Terreno,Construcción de Cimientos,Estructura y Superestructura,Instalaciones,Acabados,Inspección y Pruebas,Entrega',
             'fases.*.fecha_inicio' => 'nullable|date',
@@ -103,6 +120,13 @@ class ProyectoController extends Controller
         try {
             DB::beginTransaction();
 
+            $encargado = User::where('idUsuario', $request->idEncargado)
+                ->where('idRol', 3) // idRol 3 = manager
+                ->firstOrFail();
+            $cliente = User::where('idUsuario', $request->idCliente)
+                ->where('idRol', 2) // idRol 2 = cliente
+                ->firstOrFail();
+
             $proyecto->update([
                 'nombre' => $request->nombre,
                 'descripcion' => $request->descripcion,
@@ -110,6 +134,8 @@ class ProyectoController extends Controller
                 'fecha_fin_estimada' => $request->fecha_fin_estimada,
                 'estado' => $request->estado,
                 'fase' => $request->fase,
+                'idEncargado' => $request->idEncargado,
+                'idCliente' => $request->idCliente,
             ]);
 
             if ($request->has('fases')) {
@@ -127,8 +153,16 @@ class ProyectoController extends Controller
                 }
             }
 
+            // Delete existing chat and create a new one
+            Chat::where('idProyecto', $proyecto->idProyecto)->delete();
+            Chat::create([
+                'idCliente' => $request->idCliente,
+                'idEncargado' => $request->idEncargado,
+                'idProyecto' => $proyecto->idProyecto,
+            ]);
+
             DB::commit();
-            return response()->json(['message' => 'Proyecto actualizado exitosamente', 'proyecto' => $proyecto->load(['fases'])], 200);
+            return response()->json(['message' => 'Proyecto actualizado exitosamente', 'proyecto' => $proyecto->load(['fases', 'encargado.datos', 'cliente.datos'])], 200);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Error al actualizar proyecto: ' . $e->getMessage()], 500);
@@ -139,52 +173,14 @@ class ProyectoController extends Controller
     {
         try {
             $proyecto = Proyecto::findOrFail($id);
+            DB::beginTransaction();
+            Chat::where('idProyecto', $id)->delete();
             $proyecto->delete();
+            DB::commit();
             return response()->json(['message' => 'Proyecto eliminado exitosamente'], 200);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al eliminar proyecto: ' . $e->getMessage()], 500);
-        }
-    }
-
-    public function asignar(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'idProyecto' => 'required|exists:proyectos,idProyecto',
-            'idEncargado' => 'required|exists:usuarios,idUsuario',
-            'idCliente' => 'required|exists:usuarios,idUsuario',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['message' => 'Validación fallida', 'errors' => $validator->errors()], 422);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $proyecto = Proyecto::findOrFail($request->idProyecto);
-            $encargado = User::where('idUsuario', $request->idEncargado)
-                ->where('idRol', 3) // idRol 3 = manager
-                ->firstOrFail();
-            $cliente = User::where('idUsuario', $request->idCliente)
-                ->where('idRol', 2) // idRol 2 = cliente
-                ->firstOrFail();
-
-            $proyecto->update([
-                'idEncargado' => $request->idEncargado,
-                'idCliente' => $request->idCliente,
-            ]);
-
-            Chat::create([
-                'idCliente' => $request->idCliente,
-                'idEncargado' => $request->idEncargado,
-                'idProyecto' => $request->idProyecto,
-            ]);
-
-            DB::commit();
-            return response()->json(['message' => 'Proyecto asignado exitosamente'], 200);
-        } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Error al asignar proyecto: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error al eliminar proyecto: ' . $e->getMessage()], 500);
         }
     }
 
