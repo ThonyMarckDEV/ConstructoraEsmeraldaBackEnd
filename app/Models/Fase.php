@@ -25,7 +25,7 @@ class Fase extends Model
 
     public function proyecto()
     {
-        return $this->belongsTo(Proyecto::class, 'idProyecto');
+        return $this->belongsTo(Proyecto::class, 'idProyecto', 'idProyecto');
     }
 
     public function archivos()

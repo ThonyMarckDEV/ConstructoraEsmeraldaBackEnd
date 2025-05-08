@@ -11,8 +11,8 @@ class CreateProyectosTable extends Migration
         Schema::create('proyectos', function (Blueprint $table) {
             // Definición de columnas
             $table->bigIncrements('idProyecto');
-            $table->unsignedBigInteger('idEncargado'); // FK: referencia a usuarios.idUsuario
-            $table->unsignedBigInteger('idCliente'); // FK: referencia a usuarios.idUsuario
+            $table->unsignedBigInteger('idEncargado')->nullable(); // FK: referencia a usuarios.idUsuario
+            $table->unsignedBigInteger('idCliente')->nullable(); // FK: referencia a usuarios.idUsuario
             $table->string('nombre', 255);
             $table->text('descripcion')->nullable();
             $table->date('fecha_inicio');

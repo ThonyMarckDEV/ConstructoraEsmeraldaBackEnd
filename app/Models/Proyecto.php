@@ -6,13 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Proyecto extends Model
 {
-    // Especificamos la tabla (opcional si sigues la convención plural)
     protected $table = 'proyectos';
-
-    // Definimos la clave primaria
     protected $primaryKey = 'idProyecto';
-
-    // Definimos los campos asignables
+    public $incrementing = true;
     protected $fillable = [
         'idEncargado',
         'idCliente',
@@ -21,25 +17,26 @@ class Proyecto extends Model
         'fecha_inicio',
         'fecha_fin_estimada',
         'estado',
-        'fase'
+        'fase',
     ];
 
-    /**
-     * Relación: Un proyecto pertenece a un encargado (usuario)
-     */
     public function encargado()
     {
         return $this->belongsTo(User::class, 'idEncargado', 'idUsuario');
     }
 
-    /**
-     * Relación: Un proyecto pertenece a un cliente (usuario)
-     */
     public function cliente()
     {
         return $this->belongsTo(User::class, 'idCliente', 'idUsuario');
     }
 
+    public function fases()
+    {
+        return $this->hasMany(Fase::class, 'idProyecto', 'idProyecto');
+    }
 
-
+    public function chat()
+    {
+        return $this->hasOne(Chat::class, 'idProyecto', 'idProyecto');
+    }
 }

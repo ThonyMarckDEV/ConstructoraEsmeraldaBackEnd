@@ -3,152 +3,230 @@
 namespace App\Http\Controllers;
 
 use App\Models\Archivo;
+use App\Models\Datos;
 use App\Models\Fase;
 use App\Models\Foto;
 use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ClientController extends Controller
 {
 
-    /**
-     * Obtiene todos los proyectos de un cliente con sus fases y datos del encargado
+
+    //CRUD OF CLIENT 
+      /**
+     * Display a listing of the clients.
      */
-    public function getClientProjectsWithPhases()
+    public function index()
     {
-        $clienteId = Auth::id();
-        
-        // Get all projects for this client with manager information
-        $projects = Proyecto::where('idCliente', $clienteId)
-                        ->with(['encargado' => function($query) {
-                            $query->select('idUsuario', 'idDatos', 'username');
-                        }, 'encargado.datos' => function($query) {
-                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
-                        }])
-                        ->get();
-        
-        // For each project, get its phases
-        foreach ($projects as $project) {
-            $project->fases = Fase::where('idProyecto', $project->idProyecto)
-                                ->orderBy('idFase', 'asc')
-                                ->get();
+        try {
+            // Obtener todos los usuarios con rol de cliente (idRol = 2)
+            $clientes = User::with('datos')
+                          ->where('idRol', 2)
+                          ->orderBy('created_at', 'desc')
+                          ->get();
+            
+            return response()->json($clientes);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al obtener clientes', 'error' => $e->getMessage()], 500);
         }
-        
-        return response()->json($projects);
     }
 
     /**
-     * Get a specific project with its phases by ID for a client
+     * Store a newly created client in storage.
      */
-    public function getProjectWithPhases($id)
+    public function store(Request $request)
     {
-        $clientId = Auth::id();
-        
-        $project = Proyecto::where('idProyecto', $id)
-                        ->where('idCliente', $clientId)
-                        ->with(['encargado' => function($query) {
-                            $query->select('idUsuario', 'idDatos', 'username');
-                        }, 'encargado.datos' => function($query) {
-                            $query->select('idDatos', 'nombre', 'apellido', 'email', 'telefono');
-                        }])
-                        ->first();
-                
-        if (!$project) {
-            return response()->json(['message' => 'Proyecto no encontrado'], 404);
-        }
-        
-        $phases = Fase::where('idProyecto', $id)
-                    ->orderBy('idFase', 'asc')
-                    ->get();
-        
-        // Return combined data in a single response
-        return response()->json([
-            'proyecto' => $project,
-            'fases' => $phases
+        // Validar los datos de entrada
+        $validator = Validator::make($request->all(), [
+            'nombre' => 'required|string|max:255',
+            'apellido' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:datos,email',
+            'telefono' => 'required|string|max:20',
+            'username' => 'required|string|max:255|unique:usuarios,username',
+            'password' => 'required|string|min:6',
+            'dni' => 'nullable|string|max:20',
+            'ruc' => 'nullable|string|max:20',
+            'direccion' => 'nullable|string',
+            'estado' => 'required|in:activo,inactivo'
         ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Error de validación', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Crear datos personales
+            $datos = Datos::create([
+                'nombre' => $request->nombre,
+                'apellido' => $request->apellido,
+                'email' => $request->email,
+                'telefono' => $request->telefono,
+                'dni' => $request->dni,
+                'ruc' => $request->ruc,
+                'direccion' => $request->direccion
+            ]);
+
+            // Crear usuario
+            $usuario = User::create([
+                'username' => $request->username,
+                'password' => Hash::make($request->password),
+                'idDatos' => $datos->idDatos,
+                'idRol' => 2, // Rol de cliente
+                'estado' => $request->estado
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Cliente creado exitosamente',
+                'cliente' => [
+                    'usuario' => $usuario,
+                    'datos' => $datos
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Error al crear cliente', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * Get phases with files and photos for a specific project
+     * Display the specified client.
      */
-    public function getProjectDetails($id)
+    public function show($id)
     {
-        // This method works for both client and manager, just need to check auth
-        $userId = Auth::id();
-        
-        // Find the project ensuring the current user is either client or manager
-        $project = Proyecto::where('idProyecto', $id)
-                        ->where(function($query) use ($userId) {
-                            $query->where('idCliente', $userId)
-                                ->orWhere('idEncargado', $userId);
-                        })
-                        ->with(['cliente.datos', 'encargado.datos'])
-                        ->first();
-        
-        if (!$project) {
-            return response()->json(['message' => 'Proyecto no encontrado'], 404);
+        try {
+            $cliente = User::with('datos')
+                         ->where('idRol', 2)
+                         ->where('idUsuario', $id)
+                         ->firstOrFail();
+            
+            return response()->json($cliente);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Cliente no encontrado'], 404);
         }
-        
-        // Get phases for this project
-        $phases = Fase::where('idProyecto', $id)
-                    ->orderBy('idFase', 'asc')
-                    ->get();
+    }
 
-        // Structure the response
-        $response = [
-            'fase_actual' => $project->fase, // Nombre de la fase actual del proyecto
-            'fases' => $phases->map(function ($phase) use ($project) {
-                // Get files for this phase
-                $files = Archivo::where('idFase', $phase->idFase)
-                            ->get()
-                            ->map(function ($file) {
-                                return [
-                                    'idArchivo' => $file->idArchivo,
-                                    'ruta' => $file->ruta,
-                                    'tipo' => $file->tipo,
-                                    'descripcion' => $file->descripcion
-                                ];
-                            });
-                
-                // Get photos for this phase
-                $photos = Foto::where('idFase', $phase->idFase)
-                            ->get()
-                            ->map(function ($photo) {
-                                return [
-                                    'idFoto' => $photo->idFoto,
-                                    'ruta' => $photo->ruta,
-                                    'tipo' => $photo->tipo,
-                                    'descripcion' => $photo->descripcion
-                                ];
-                            });
-                
-                return [
-                    'idFase' => $phase->idFase,
-                    'nombreFase' => $phase->nombreFase,
-                    'descripcion' => $phase->descripcion,
-                    'es_actual' => $phase->nombreFase === $project->fase, // Indica si es la fase actual
-                    'archivos' => $files,
-                    'fotos' => $photos
-                ];
-            })
+    /**
+     * Update the specified client in storage.
+     */
+    public function update(Request $request, $id)
+    {
+        // Obtener el cliente
+        $cliente = User::where('idRol', 2)
+                   ->where('idUsuario', $id)
+                   ->first();
+
+        if (!$cliente) {
+            return response()->json(['message' => 'Cliente no encontrado'], 404);
+        }
+
+        // Reglas de validación
+        $rules = [
+            'nombre' => 'required|string|max:255',
+            'apellido' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:datos,email,' . $cliente->idDatos . ',idDatos',
+            'telefono' => 'required|string|max:20',
+            'username' => 'required|string|max:255|unique:usuarios,username,' . $id . ',idUsuario',
+            'dni' => 'nullable|string|max:20',
+            'ruc' => 'nullable|string|max:20',
+            'direccion' => 'nullable|string',
+            'estado' => 'required|in:activo,inactivo'
         ];
-        
-        return response()->json($response);
-    }
 
-    public function download(Request $request, $path)
-    {
-        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
-        if (Storage::disk('public')->exists($path)) {
-            // Retorna el archivo forzando la descarga
-            return Storage::disk('public')->download($path);
-        } else {
-            abort(404, 'Archivo no encontrado');
+        // Validar contraseña solo si se proporciona
+        if ($request->filled('password')) {
+            $rules['password'] = 'string|min:6';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Error de validación', 'errors' => $validator->errors()], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Actualizar datos personales
+            $datos = Datos::find($cliente->idDatos);
+            
+            if ($datos) {
+                $datos->update([
+                    'nombre' => $request->nombre,
+                    'apellido' => $request->apellido,
+                    'email' => $request->email,
+                    'telefono' => $request->telefono,
+                    'dni' => $request->dni,
+                    'ruc' => $request->ruc,
+                    'direccion' => $request->direccion
+                ]);
+            }
+
+            // Actualizar datos de usuario
+            $clienteData = [
+                'username' => $request->username,
+                'estado' => $request->estado
+            ];
+
+            // Actualizar contraseña solo si se proporciona
+            if ($request->filled('password')) {
+                $clienteData['password'] = Hash::make($request->password);
+            }
+
+            $cliente->update($clienteData);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Cliente actualizado exitosamente',
+                'cliente' => [
+                    'usuario' => $cliente->fresh(),
+                    'datos' => $datos->fresh()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Error al actualizar cliente', 'error' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Remove the specified client from storage.
+     */
+    public function destroy($id)
+    {
+        try {
+            $cliente = User::where('idRol', 2)
+                         ->where('idUsuario', $id)
+                         ->firstOrFail();
+            
+            // Check for active projects
+            $activeProject = Proyecto::where('idCliente', $id)
+                                    ->where('estado', 'En Progreso')
+                                    ->exists();
+            
+            if ($activeProject) {
+                return response()->json([
+                    'message' => 'No se puede desactivar el cliente porque está asociado a un proyecto en progreso. Por favor, finalice el proyecto e intente de nuevo.'
+                ], 400);
+            }
+            
+            // Soft delete by changing estado to inactivo
+            $cliente->update(['estado' => 'inactivo']);
+            
+            return response()->json(['message' => 'Cliente desactivado exitosamente']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al eliminar cliente', 'error' => $e->getMessage()], 500);
+        }
+    }
+
 
 }
