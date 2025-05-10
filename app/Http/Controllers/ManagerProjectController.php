@@ -448,7 +448,7 @@ class ManagerProjectController extends Controller
             'success' => true,
             'data' => [
                 'modelo_path' => $fase->modelo,
-                'modelo_url' => "http://localhost:8000/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
+                'modelo_url' => "https://constructora-esmeralda-backend.thonymarckdev.online/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
             ]
         ]);
     }
@@ -474,7 +474,7 @@ class ManagerProjectController extends Controller
         ]);
     
         // Add CORS headers
-        $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
+        $response->headers->set('Access-Control-Allow-Origin', 'https://constructora-esmeralda-front-end.vercel.app');
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
         $response->headers->set('Access-Control-Expose-Headers', 'Content-Disposition');
     
