@@ -16,8 +16,8 @@ return new class extends Migration
             $table->boolean('leido')->default(false);
             $table->timestamps();
 
-            $table->foreign('idChat')->references('idChat')->on('chats');
-            $table->foreign('idUsuario')->references('idUsuario')->on('usuarios');
+            $table->foreign('idChat')->references('idChat')->on('chats')->onDelete('cascade');
+            $table->foreign('idUsuario')->references('idUsuario')->on('usuarios')->onDelete('cascade');
         });
     }
 
