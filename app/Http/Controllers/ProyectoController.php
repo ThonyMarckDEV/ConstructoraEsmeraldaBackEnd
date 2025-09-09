@@ -152,14 +152,21 @@ class ProyectoController extends Controller
                     }
                 }
             }
-
-            // Delete existing chat and create a new one
-            Chat::where('idProyecto', $proyecto->idProyecto)->delete();
-            Chat::create([
-                'idCliente' => $request->idCliente,
-                'idEncargado' => $request->idEncargado,
-                'idProyecto' => $proyecto->idProyecto,
-            ]);
+            
+             // Update or create the chat associated with the project
+            $chat = Chat::where('idProyecto', $proyecto->idProyecto)->first();
+            if ($chat) {
+                $chat->update([
+                    'idCliente' => $request->idCliente,
+                    'idEncargado' => $request->idEncargado,
+                ]);
+            } else {
+                Chat::create([
+                    'idCliente' => $request->idCliente,
+                    'idEncargado' => $request->idEncargado,
+                    'idProyecto' => $proyecto->idProyecto,
+                ]);
+            }
 
             DB::commit();
             return response()->json(['message' => 'Proyecto actualizado exitosamente', 'proyecto' => $proyecto->load(['fases', 'encargado.datos', 'cliente.datos'])], 200);
@@ -205,6 +212,30 @@ class ProyectoController extends Controller
             return response()->json($clientes, 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error al cargar clientes: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function getChatIdByProyecto(Request $request, $proyectoId)
+    {
+        try {
+            // Find the chat associated with the project ID
+            $chat = Chat::where('idProyecto', $proyectoId)->first();
+
+            if (!$chat) {
+                return response()->json([
+                    'message' => 'No se encontró un chat asociado con el proyecto especificado.'
+                ], 404);
+            }
+
+            return response()->json([
+                'idChat' => $chat->idChat
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener el ID del chat.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

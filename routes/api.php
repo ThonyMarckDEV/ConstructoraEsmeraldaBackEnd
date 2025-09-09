@@ -108,6 +108,8 @@ Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () {
         Route::get('/project/files/download/{path}', [ClientProjectController::class, 'download'])
         ->where('path', '.*')
         ->name('files.download');
+
+        Route::get('/project/{proyectoId}/chat-id', [ProyectoController::class, 'getChatIdByProyecto']);
   
 });
 
