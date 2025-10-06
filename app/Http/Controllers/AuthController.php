@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Log as ModelsLog;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Tymon\JWTAuth\Facades\JWTAuth;
-use Tymon\JWTAuth\Exceptions\TokenExpiredException;
-use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTFactory;
 
@@ -107,6 +107,15 @@ class AuthController extends Controller
             'expires_at' => date('Y-m-d H:i:s', $now + $refreshTTL),
             'created_at' => date('Y-m-d H:i:s', $now),
             'updated_at' => date('Y-m-d H:i:s', $now)
+        ]);
+
+        // 2. Obtén el ID del usuario autenticado
+        $usuarioId = $user->idUsuario;
+        
+        // 3. Crea el registro en la tabla de logs
+        ModelsLog::create([
+            'id_Usuario' => $usuarioId,
+            'registro' => 'El usuario ha iniciado sesión.'
         ]);
         
         // Devolver la respuesta con los tokens

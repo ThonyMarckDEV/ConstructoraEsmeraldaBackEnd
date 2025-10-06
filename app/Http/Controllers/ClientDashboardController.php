@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Proyecto;
 use App\Models\User;
 use App\Models\Fase;
+use App\Models\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -180,6 +181,15 @@ class ClientDashboardController extends Controller
                     'count' => $cantidad
                 ];
             }
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Vio las analiticas'
+            ]);
             
             return response()->json([
                 'success' => true,

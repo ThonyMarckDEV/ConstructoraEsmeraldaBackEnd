@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Archivo;
 use App\Models\Fase;
 use App\Models\Foto;
+use App\Models\Log;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,16 @@ class ClientProjectController extends Controller
                                 ->get();
         }
         
+
+           // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Obtuvo los proyectos del cliente con sus fases'
+            ]);
+
         return response()->json($projects);
     }
 
@@ -63,7 +74,16 @@ class ClientProjectController extends Controller
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
+
+        // 2. Obtén el ID del usuario autenticado
+        $usuarioId = Auth::id();
         
+        // 3. Crea el registro en la tabla de logs
+        Log::create([
+            'id_Usuario' => $usuarioId,
+            'registro' => 'Obtuvo el detalle de un proyecto del cliente con sus fases'
+        ]);
+    
         // Return combined data in a single response
         return response()->json([
             'proyecto' => $project,

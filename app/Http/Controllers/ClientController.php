@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Archivo;
 use App\Models\Datos;
-use App\Models\Fase;
-use App\Models\Foto;
+use App\Models\Log;
 use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -84,6 +82,15 @@ class ClientController extends Controller
             ]);
 
             DB::commit();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Creo un nuevo cliente'
+            ]);
 
             return response()->json([
                 'message' => 'Cliente creado exitosamente',
@@ -184,6 +191,15 @@ class ClientController extends Controller
             $cliente->update($clienteData);
 
             DB::commit();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo un cliente'
+            ]);
 
             return response()->json([
                 'message' => 'Cliente actualizado exitosamente',

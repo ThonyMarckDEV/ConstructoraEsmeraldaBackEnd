@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Proyecto;
 use App\Models\Fase;
 use App\Models\Chat;
+use App\Models\Log;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -84,6 +86,15 @@ class ProyectoController extends Controller
                 'idCliente' => $request->idCliente,
                 'idEncargado' => $request->idEncargado,
                 'idProyecto' => $proyecto->idProyecto,
+            ]);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Creo un proyecto'
             ]);
 
             DB::commit();
@@ -168,6 +179,16 @@ class ProyectoController extends Controller
                 ]);
             }
 
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo un proyecto'
+            ]);
+
             DB::commit();
             return response()->json(['message' => 'Proyecto actualizado exitosamente', 'proyecto' => $proyecto->load(['fases', 'encargado.datos', 'cliente.datos'])], 200);
         } catch (\Exception $e) {
@@ -183,6 +204,16 @@ class ProyectoController extends Controller
             DB::beginTransaction();
             Chat::where('idProyecto', $id)->delete();
             $proyecto->delete();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Elimino un proyecto'
+            ]);
+
             DB::commit();
             return response()->json(['message' => 'Proyecto eliminado exitosamente'], 200);
         } catch (\Exception $e) {

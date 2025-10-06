@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Datos;
+use App\Models\Log;
 use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -76,6 +78,17 @@ class ManagerController extends Controller
             ]);
 
             DB::commit();
+
+            
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Creo un encargado de proyecto'
+            ]);
+
 
             return response()->json([
                 'message' => 'Encargado creado exitosamente',
@@ -177,6 +190,15 @@ class ManagerController extends Controller
 
             DB::commit();
 
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo un encargado de proyecto'
+            ]);
+
             return response()->json([
                 'message' => 'Encargado actualizado exitosamente',
                 'encargado' => [
@@ -213,6 +235,15 @@ class ManagerController extends Controller
             
             // Soft delete by changing estado to inactivo
             $encargado->update(['estado' => 'inactivo']);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cambio el estado de un encargado de proyecto'
+            ]);
             
             return response()->json(['message' => 'Encargado desactivado exitosamente']);
         } catch (\Exception $e) {

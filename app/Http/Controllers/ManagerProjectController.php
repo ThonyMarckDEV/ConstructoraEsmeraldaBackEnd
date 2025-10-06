@@ -198,6 +198,15 @@ class ManagerProjectController extends Controller
             // Registrar la actividad
             Log::info("Proyecto ID {$id} actualizado a fase: {$nuevaFase}");
 
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo la fase de proyecto'
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Fase del proyecto actualizada correctamente',
@@ -288,6 +297,15 @@ class ManagerProjectController extends Controller
             $archivo->created_at = now(); // Establecer la fecha de creación
             $archivo->updated_at = now(); // Establecer la fecha de actualización
             $archivo->save();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cargo un archivo al proyecto'
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -373,6 +391,15 @@ class ManagerProjectController extends Controller
             $foto->created_at = now(); // Establecer la fecha de creación
             $foto->updated_at = now(); // Establecer la fecha de actualización
             $foto->save();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cargo una foto al proyecto'
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -411,6 +438,15 @@ class ManagerProjectController extends Controller
             if (Storage::disk('public')->exists($path)) {
                 Storage::disk('public')->delete($path);
             }
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Borro un archivo del proyecto'
+            ]);
     
             return response()->json([
                 'success' => true,
@@ -571,6 +607,15 @@ class ManagerProjectController extends Controller
             $fase->modelo = $filePath;
             $fase->save();
             Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Subio un modelo al proyecto'
+            ]);
 
             return response()->json([
                 'success' => true,
