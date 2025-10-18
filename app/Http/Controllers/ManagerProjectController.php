@@ -224,104 +224,6 @@ class ManagerProjectController extends Controller
             }
         }
 
-
-
-
-
-    //   /**
-    //  * Subir un archivo a una fase específica
-    //  * 
-    //  * @param Request $request
-    //  * @return \Illuminate\Http\JsonResponse
-    //  */
-    // public function uploadFile(Request $request)
-    // {
-    //     // Validación de datos
-    //     $validator = Validator::make($request->all(), [
-    //         'archivo' => 'required|file|mimes:pdf,xls,xlsx,doc,docx,dwg|max:20480', // 20MB max
-    //         'idFase' => 'required|exists:fases,idFase',
-    //         'idProyecto' => 'required|exists:proyectos,idProyecto',
-    //         'descripcion' => 'nullable|string|max:500',
-    //     ]);
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Error de validación',
-    //             'errors' => $validator->errors()
-    //         ], 422);
-    //     }
-
-    //     // Verificar que la fase pertenece al proyecto
-    //     $fase = Fase::where('idFase', $request->idFase)
-    //         ->where('idProyecto', $request->idProyecto)
-    //         ->first();
-
-    //     if (!$fase) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'La fase no pertenece al proyecto especificado'
-    //         ], 404);
-    //     }
-
-    //     try {
-    //         // Obtener el archivo
-    //         $file = $request->file('archivo');
-            
-    //         // Determinar el tipo de archivo
-    //         $fileExtension = $file->getClientOriginalExtension();
-    //         $tipoArchivo = strtolower($fileExtension);
-            
-    //         // Validar que el tipo sea permitido
-    //         $allowedTypes = ['pdf', 'xls', 'xlsx', 'doc', 'docx', 'dwg'];
-    //         if (!in_array($tipoArchivo, $allowedTypes)) {
-    //             $tipoArchivo = 'pdf'; // Tipo por defecto
-    //         }
-            
-    //         // Crear el directorio si no existe
-    //         $path = "proyectos/{$request->idProyecto}/fases/{$request->idFase}/archivos";
-            
-    //         // Generar un nombre único para el archivo
-    //         $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $file->getClientOriginalName());
-            
-    //         // Guardar el archivo en el sistema de archivos
-    //         $filePath = $file->storeAs($path, $fileName, 'public');
-            
-    //         // Guardar los datos en la base de datos
-    //         $archivo = new Archivo();
-    //         $archivo->nombre = $file->getClientOriginalName();
-    //         $archivo->idFase = $request->idFase;
-    //         $archivo->tipo = $tipoArchivo;
-    //         // $archivo->ruta = Storage::url($filePath);
-    //         $archivo->ruta = $filePath;
-    //         $archivo->descripcion = $request->descripcion ?? 'Archivo subido: ' . $file->getClientOriginalName();
-    //         $archivo->created_at = now(); // Establecer la fecha de creación
-    //         $archivo->updated_at = now(); // Establecer la fecha de actualización
-    //         $archivo->save();
-
-    //         // 2. Obtén el ID del usuario autenticado
-    //         $usuarioId = Auth::id();
-            
-    //         // 3. Crea el registro en la tabla de logs
-    //         ModelsLog::create([
-    //             'id_Usuario' => $usuarioId,
-    //             'registro' => 'Cargo un archivo al proyecto'
-    //         ]);
-            
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Archivo subido correctamente',
-    //             'data' => $archivo
-    //         ], 201);
-            
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Error al subir el archivo: ' . $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
     /**
      * Subir un archivo a una fase específica
      * * @param Request $request
@@ -457,7 +359,7 @@ class ManagerProjectController extends Controller
             ], 404);
         }
 
-        try {
+       try {
             // Obtener la foto
             $photo = $request->file('foto');
             
@@ -477,16 +379,22 @@ class ManagerProjectController extends Controller
             // Generar un nombre único para la foto
             $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $photo->getClientOriginalName());
             
-            // Guardar la foto en el sistema de archivos
-            $filePath = $photo->storeAs($path, $fileName, 'public');
+            // Guardar la foto en el sistema de archivos (¡esto ya estaba bien!)
+            $filePath = $photo->storeAs($path, $fileName, 'minio');
 
             // Guardar los datos en la base de datos
             $foto = new Foto();
             $foto->nombre = $photo->getClientOriginalName();
             $foto->idFase = $request->idFase;
             $foto->tipo = $tipoFoto;
-           // $foto->ruta = Storage::url($filePath);
-            $foto->ruta = $filePath;
+
+            // --- INICIO DE LA CORRECCIÓN ---
+            
+            // Obtener la URL pública completa del archivo desde el bucket
+            $foto->ruta = Storage::disk('minio')->url($filePath);
+            
+            // --- FIN DE LA CORRECCIÓN ---
+
             $foto->descripcion = $request->descripcion ?? 'Foto subida: ' . $photo->getClientOriginalName();
             $foto->created_at = now(); // Establecer la fecha de creación
             $foto->updated_at = now(); // Establecer la fecha de actualización
@@ -515,7 +423,7 @@ class ManagerProjectController extends Controller
         }
     }
 
-    public function deleteFile(Request $request)
+public function deleteFile(Request $request)
     {
         $request->validate([
             'id' => 'required|integer',
@@ -525,19 +433,32 @@ class ManagerProjectController extends Controller
         try {
             if ($request->type === 'archivo') {
                 $file = Archivo::findOrFail($request->id);
-                $path = $file->ruta;
+                $path = $file->ruta; // $path contiene la URL completa
                 $file->delete();
             } else {
                 $file = Foto::findOrFail($request->id);
-                $path = $file->ruta;
+                $path = $file->ruta; // $path contiene la URL completa
                 $file->delete();
             }
     
-            // Eliminar el archivo físico
-            // Usar el disco 'public' explícitamente
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+            // --- INICIO DE CAMBIOS ---
+
+            // 1. Obtener la URL base de tu config de minio
+            $baseUrl = config('filesystems.disks.minio.url');
+
+            if (!$baseUrl) {
+                throw new \Exception("La URL base de MINIO (MINIO_URL) no está configurada.");
             }
+
+            // 2. Extraer la ruta relativa de la URL completa
+            $relativePath = ltrim(str_replace($baseUrl, '', $path), '/');
+            
+            // 3. Eliminar el archivo físico del disco 'minio'
+            // Se elimina la comprobación 'exists()' ya que puede fallar por
+            // permisos (ej. ListBucket) y es redundante.
+            Storage::disk('minio')->delete($relativePath);
+
+            // --- FIN DE CAMBIOS ---
 
             // 2. Obtén el ID del usuario autenticado
             $usuarioId = Auth::id();
@@ -603,15 +524,34 @@ class ManagerProjectController extends Controller
                     ->where('idProyecto', $idProyecto)
                     ->firstOrFail();
         
-        $rutaModelo = storage_path('app/public/' . $fase->modelo);
-    
-        if (!file_exists($rutaModelo)) {
-            abort(404, 'Archivo de modelo no encontrado');
+       // --- INICIO DE CAMBIOS ---
+
+        if (empty($fase->modelo)) {
+            abort(404, 'La fase no tiene modelo asociado');
+        }
+
+        // 1. Obtener la URL base de MinIO
+        $baseUrl = config('filesystems.disks.minio.url');
+        if (!$baseUrl || strpos($fase->modelo, $baseUrl) !== 0) {
+            abort(500, 'Configuración de MINIO_URL inválida o la ruta del modelo no coincide.');
+        }
+
+        // 2. Extraer la ruta relativa de la URL completa
+        $relativePath = ltrim(str_replace($baseUrl, '', $fase->modelo), '/');
+
+        // 3. Comprobar si el archivo existe en MinIO
+        if (!Storage::disk('minio')->exists($relativePath)) {
+            abort(404, 'Archivo de modelo no encontrado en el bucket');
         }
     
-        $response = response()->file($rutaModelo, [
+        // 4. Obtener el stream del archivo desde MinIO y devolverlo como descarga
+        // Esto maneja la descarga del archivo directamente desde MinIO al usuario
+        $response = Storage::disk('minio')->response($relativePath, null, [
             'Content-Type' => 'model/gltf-binary',
+            // 'Content-Disposition' => 'attachment; filename="' . basename($relativePath) . '"' // Opcional
         ]);
+        
+        // --- FIN DE CAMBIOS ---
     
         // Determinar el origen permitido basado en el entorno de la aplicación
         $allowedOrigin = (config('app.env') === 'production')
@@ -700,20 +640,33 @@ class ManagerProjectController extends Controller
             $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
             Log::info('Nombre limpio generado:', ['cleanName' => $cleanName]);
 
+           // --- INICIO DE CAMBIOS ---
+
             // Verificar si hay un modelo anterior para eliminarlo
-            if ($fase->modelo && Storage::disk('public')->exists($fase->modelo)) {
-                Log::info('Eliminando modelo anterior:', ['modelo' => $fase->modelo]);
-                Storage::disk('public')->delete($fase->modelo);
+            if ($fase->modelo) {
+                // $fase->modelo contiene la URL completa (ej: https://.../bucket/proyectos/...)
+                $baseUrl = config('filesystems.disks.minio.url');
+                
+                if ($baseUrl && strpos($fase->modelo, $baseUrl) === 0) {
+                    $relativePath = ltrim(str_replace($baseUrl, '', $fase->modelo), '/');
+                    Log::info('Eliminando modelo anterior:', ['relativePath' => $relativePath]);
+                    
+                    // Eliminar del disco 'minio'
+                    Storage::disk('minio')->delete($relativePath);
+                }
             }
 
-            // Guardar el modelo en el sistema de archivos
-            $filePath = $file->storeAs($path, $cleanName, 'public');
-            Log::info('Modelo guardado en:', ['filePath' => $filePath]);
+            // Guardar el modelo en el disco 'minio'
+            $filePath = $file->storeAs($path, $cleanName, 'minio');
+            Log::info('Modelo guardado en MinIO:', ['filePath' => $filePath]);
 
             // Actualizar la ruta del modelo en la base de datos
-            $fase->modelo = $filePath;
+            // Guardar la URL pública completa
+            $fase->modelo = Storage::disk('minio')->url($filePath);
             $fase->save();
-            Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
+            Log::info('URL del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
+            
+            // --- FIN DE CAMBIOS ---
 
             // 2. Obtén el ID del usuario autenticado
             $usuarioId = Auth::id();
