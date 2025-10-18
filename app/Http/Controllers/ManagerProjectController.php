@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Archivo;
 use App\Models\Fase;
 use App\Models\Foto;
+use App\Models\Log as ModelsLog;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -202,7 +203,7 @@ class ManagerProjectController extends Controller
             $usuarioId = Auth::id();
             
             // 3. Crea el registro en la tabla de logs
-            Log::create([
+            ModelsLog::create([
                 'id_Usuario' => $usuarioId,
                 'registro' => 'Actualizo la fase de proyecto'
             ]);
@@ -302,7 +303,7 @@ class ManagerProjectController extends Controller
             $usuarioId = Auth::id();
             
             // 3. Crea el registro en la tabla de logs
-            Log::create([
+            ModelsLog::create([
                 'id_Usuario' => $usuarioId,
                 'registro' => 'Cargo un archivo al proyecto'
             ]);
@@ -396,7 +397,7 @@ class ManagerProjectController extends Controller
             $usuarioId = Auth::id();
             
             // 3. Crea el registro en la tabla de logs
-            Log::create([
+            ModelsLog::create([
                 'id_Usuario' => $usuarioId,
                 'registro' => 'Cargo una foto al proyecto'
             ]);
@@ -443,7 +444,7 @@ class ManagerProjectController extends Controller
             $usuarioId = Auth::id();
             
             // 3. Crea el registro en la tabla de logs
-            Log::create([
+            ModelsLog::create([
                 'id_Usuario' => $usuarioId,
                 'registro' => 'Borro un archivo del proyecto'
             ]);
@@ -463,7 +464,7 @@ class ManagerProjectController extends Controller
 
     
 
-    public function obtenerModelo($idProyecto, $idFase)
+      public function obtenerModelo($idProyecto, $idFase)
     {
         // Find the project to ensure it exists
         $proyecto = Proyecto::findOrFail($idProyecto);
@@ -480,12 +481,15 @@ class ManagerProjectController extends Controller
             ], 404);
         }
 
+        // Obtener la URL base desde la configuración de la app (app.url en .env)
+        $baseUrl = config('app.url');
+
         return response()->json([
             'success' => true,
             'data' => [
                 'modelo_path' => $fase->modelo,
-                'modelo_url' => "https://constructora-esmeralda-backend.thonymarckdev.online/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
-                //'modelo_url' => "http://localhost:8000/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
+                // Construir la URL dinámicamente basado en el entorno
+                'modelo_url' => "{$baseUrl}/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
             ]
         ]);
     }
@@ -510,11 +514,15 @@ class ManagerProjectController extends Controller
             'Content-Type' => 'model/gltf-binary',
         ]);
     
+        // Determinar el origen permitido basado en el entorno de la aplicación
+        $allowedOrigin = (config('app.env') === 'production')
+            ? config('app.frontend_url') // URL de producción desde config/app.php
+            : 'http://localhost:3000';   // URL para desarrollo local
+
         // Add CORS headers
-        $response->headers->set('Access-Control-Allow-Origin', 'https://constructora-esmeralda-front-end.vercel.app');
-      // $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
+        $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
-        $response->headers->set('Access-Control-Expose-Headers', 'Content-Disposition');
+        $response->headers->set('Access-control-expose-headers', 'Content-Disposition');
     
         return $response;
     }
@@ -612,7 +620,7 @@ class ManagerProjectController extends Controller
             $usuarioId = Auth::id();
             
             // 3. Crea el registro en la tabla de logs
-            Log::create([
+            ModelsLog::create([
                 'id_Usuario' => $usuarioId,
                 'registro' => 'Subio un modelo al proyecto'
             ]);
