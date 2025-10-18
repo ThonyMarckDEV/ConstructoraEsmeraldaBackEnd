@@ -163,9 +163,6 @@ class ClientProjectController extends Controller
 
    public function download(Request $request, $path)
     {
-        // **Validación básica de seguridad (MUY IMPORTANTE)**
-        // Asegúrate que la URL pertenezca a tu bucket de MinIO para evitar que usen tu API como proxy abierto.
-        // Reemplaza 'TU_DOMINIO_MINIO' con el dominio real de tu servidor MinIO.
         $minioBaseUrl = 'constructoraesmeralda-minio-server.thonymarckdev.online'; // SOLO el dominio
         if (!str_contains($path, $minioBaseUrl)) {
              Log::warning("Intento de descarga de URL no permitida: " . $path);
