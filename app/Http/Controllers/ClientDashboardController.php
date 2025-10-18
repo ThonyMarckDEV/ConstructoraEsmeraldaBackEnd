@@ -11,201 +11,153 @@ use Carbon\Carbon;
 
 class ClientDashboardController extends Controller
 {
-    public function getAnalytics()
+public function getAnalytics()
     {
         try {
-            // Get the authenticated client
             $client = Auth::user();
-            
-            // Verify the user is a client (id_rol = 2)
             if ($client->idRol !== 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Usuario no autorizado. Se requiere rol de cliente.'
-                ], 403);
+                return response()->json(['success' => false, 'message' => 'Usuario no autorizado'], 403);
+            }
+
+            $today = Carbon::today();
+            $proyectos = Proyecto::where('idCliente', $client->idUsuario)->get();
+            $totalProyectos = $proyectos->count();
+
+            if ($totalProyectos === 0) {
+                return $this->getEmptyAnalyticsData();
+            }
+
+            $fases = Fase::whereIn('idProyecto', $proyectos->pluck('idProyecto'))->get();
+            $nombresFases = [
+                'Planificación', 'Preparación del Terreno', 'Construcción de Cimientos',
+                'Estructura y Superestructura', 'Instalaciones', 'Acabados',
+                'Inspección y Pruebas', 'Entrega'
+            ];
+            $phaseIndex = array_flip($nombresFases);
+            $totalFasesCount = count($nombresFases);
+
+            // 1. KPIs Principales
+            $proyectosEnProgreso = $proyectos->where('estado', 'En Progreso');
+            $proyectosFinalizados = $proyectos->where('estado', 'Finalizado');
+            
+            $proyectosRetrasadosNivelProyecto = $proyectosEnProgreso->filter(function($p) use ($today) {
+                return Carbon::parse($p->fecha_fin_estimada)->lt($today);
+            });
+
+            $kpis = [
+                'total_proyectos' => $totalProyectos,
+                'proyectos_en_progreso' => $proyectosEnProgreso->count(),
+                'proyectos_finalizados' => $proyectosFinalizados->count(),
+                'proyectos_retrasados' => $proyectosRetrasadosNivelProyecto->count(),
+                'porcentaje_retrasados' => $totalProyectos > 0 ? round(($proyectosRetrasadosNivelProyecto->count() / $totalProyectos) * 100, 1) : 0
+            ];
+
+            // 2. Gráfico: Estado de Proyectos (Pie)
+            $estadoProyectosChart = [
+                ['name' => 'En Progreso', 'value' => $proyectosEnProgreso->count()],
+                ['name' => 'Finalizado', 'value' => $proyectosFinalizados->count()],
+            ];
+
+            // 3. Gráfico: Proyectos por Fase Actual (Bar)
+            $faseActualChart = [];
+            $countPorFase = $proyectosEnProgreso->countBy('fase');
+            foreach ($nombresFases as $nombre) {
+                if (isset($countPorFase[$nombre]) && $countPorFase[$nombre] > 0) {
+                    $faseActualChart[] = ['name' => $nombre, 'count' => $countPorFase[$nombre]];
+                }
             }
             
-            // Get current date for delay calculations
-            $today = Carbon::today();
+            // 4. Gráfico: Retraso de Fases Actuales (Pie) y 5. Tabla: Fases Retrasadas
+            $retrasoFasesEnTiempo = 0;
+            $retrasoFasesRetrasadas = 0;
+            $listaFasesRetrasadas = [];
             
-            // Get all projects where the user is the client
-            $proyectos = Proyecto::where('idCliente', $client->idUsuario)->get();
+            foreach ($proyectosEnProgreso as $proyecto) {
+                $faseActualData = $fases
+                    ->where('idProyecto', $proyecto->idProyecto)
+                    ->firstWhere('nombreFase', $proyecto->fase);
+
+                if ($faseActualData && !empty($faseActualData->fecha_fin) && Carbon::parse($faseActualData->fecha_fin)->lt($today)) {
+                    $retrasoFasesRetrasadas++;
+                    $listaFasesRetrasadas[] = [
+                        'id' => $proyecto->idProyecto,
+                        'nombre' => $proyecto->nombre,
+                        'fase_retrasada' => $faseActualData->nombreFase,
+                        'dias_retraso' => $today->diffInDays(Carbon::parse($faseActualData->fecha_fin))
+                    ];
+                } else {
+                    $retrasoFasesEnTiempo++;
+                }
+            }
             
-            // Count total projects
-            $totalProyectos = $proyectos->count();
-            
-            // Get projects by status
-            $proyectosPorEstado = [
-                'En Progreso' => $proyectos->where('estado', 'En Progreso')->count(),
-                'Finalizado' => $proyectos->where('estado', 'Finalizado')->count()
+            $retrasoFasesChart = [
+                ['name' => 'En Tiempo', 'value' => $retrasoFasesEnTiempo],
+                ['name' => 'Retrasados', 'value' => $retrasoFasesRetrasadas]
             ];
             
-            // Get projects by phase
-            $proyectosPorFase = [
-                'Planificación' => $proyectos->where('fase', 'Planificación')->count(),
-                'Preparación del Terreno' => $proyectos->where('fase', 'Preparación del Terreno')->count(),
-                'Construcción de Cimientos' => $proyectos->where('fase', 'Construcción de Cimientos')->count(),
-                'Estructura y Superestructura' => $proyectos->where('fase', 'Estructura y Superestructura')->count(),
-                'Instalaciones' => $proyectos->where('fase', 'Instalaciones')->count(),
-                'Acabados' => $proyectos->where('fase', 'Acabados')->count(),
-                'Inspección y Pruebas' => $proyectos->where('fase', 'Inspección y Pruebas')->count(),
-                'Entrega' => $proyectos->where('fase', 'Entrega')->count()
-            ];
-            
-            // Remove phases with zero projects
-            $proyectosPorFase = array_filter($proyectosPorFase, function($count) {
-                return $count > 0;
-            });
-            
-            // Calculate delayed projects (end date has passed but still in progress)
-            $proyectosRetrasados = $proyectos
-                ->where('estado', 'En Progreso')
-                ->filter(function($proyecto) use ($today) {
-                    return Carbon::parse($proyecto->fecha_fin_estimada)->lt($today);
-                });
-            
-            $totalProyectosRetrasados = $proyectosRetrasados->count();
-            $porcentajeRetrasados = $totalProyectos > 0 ? round(($totalProyectosRetrasados / $totalProyectos) * 100, 1) : 0;
-            
-            // Calculate phase completion rates and average time per phase
-            $fases = Fase::whereIn('idProyecto', $proyectos->pluck('idProyecto'))->get();
-            $fasesTiempoPromedio = [];
-            $fasesPorcentajeCompletado = [];
-            
-            $nombresFases = [
-                'Planificación',
-                'Preparación del Terreno',
-                'Construcción de Cimientos',
-                'Estructura y Superestructura',
-                'Instalaciones',
-                'Acabados',
-                'Inspección y Pruebas',
-                'Entrega'
-            ];
-            
-            foreach ($nombresFases as $nombreFase) {
-                $fasesDeEsteTipo = $fases->where('nombreFase', $nombreFase);
-                $fasesCompletadas = $fasesDeEsteTipo->filter(function($fase) {
-                    return !empty($fase->fecha_fin);
-                });
+            // 6. Tabla: Lista Principal de Proyectos
+            $listaProyectos = $proyectos->map(function($p) use ($today, $fases, $phaseIndex, $totalFasesCount) {
+                $progresoTiempo = 0;
                 
-                // Calculate completion percentage
-                $totalFases = $fasesDeEsteTipo->count();
-                $completadas = $fasesCompletadas->count();
-                $porcentaje = $totalFases > 0 ? round(($completadas / $totalFases) * 100, 1) : 0;
-                $fasesPorcentajeCompletado[$nombreFase] = $porcentaje;
-                
-                // Calculate average time for completed phases (in days)
-                $tiempoTotal = 0;
-                $contadorTiempo = 0;
-                
-                foreach ($fasesCompletadas as $fase) {
-                    if (!empty($fase->fecha_inicio) && !empty($fase->fecha_fin)) {
-                        $inicio = Carbon::parse($fase->fecha_inicio);
-                        $fin = Carbon::parse($fase->fecha_fin);
-                        $tiempoTotal += $inicio->diffInDays($fin);
-                        $contadorTiempo++;
+                if ($p->estado === 'Finalizado') {
+                    $progresoTiempo = 100;
+                } else {
+                    $faseActualData = $fases->where('idProyecto', $p->idProyecto)->firstWhere('nombreFase', $p->fase);
+                    if ($faseActualData && !empty($faseActualData->fecha_inicio) && !empty($faseActualData->fecha_fin)) {
+                        $inicio = Carbon::parse($faseActualData->fecha_inicio);
+                        $finPactado = Carbon::parse($faseActualData->fecha_fin);
+                        $totalDias = $inicio->diffInDays($finPactado);
+                        $diasTranscurridos = $inicio->diffInDays($today);
+
+                        if ($totalDias > 0) {
+                            $progreso = ($diasTranscurridos / $totalDias) * 100;
+                            $progresoTiempo = round(min(100, max(0, $progreso)), 1);
+                        } elseif ($diasTranscurridos >= 0) {
+                            $progresoTiempo = 100; // Fase de 0 días que ya pasó
+                        }
                     }
                 }
                 
-                $tiempoPromedio = $contadorTiempo > 0 ? round($tiempoTotal / $contadorTiempo, 1) : 0;
-                $fasesTiempoPromedio[$nombreFase] = $tiempoPromedio;
-            }
-            
-            // Get projects with phases that are delayed
-            $proyectosConFasesRetrasadas = [];
-            foreach ($proyectos as $proyecto) {
-                $fasesProyecto = $fases->where('idProyecto', $proyecto->idProyecto);
-                $fasesRetrasadas = $fasesProyecto->filter(function($fase) use ($today) {
-                    return !empty($fase->fecha_fin_estimada) && Carbon::parse($fase->fecha_fin_estimada)->lt($today) && empty($fase->fecha_fin);
-                });
-                
-                if ($fasesRetrasadas->count() > 0) {
-                    $proyectosConFasesRetrasadas[] = [
-                        'id' => $proyecto->idProyecto,
-                        'nombre' => $proyecto->nombre,
-                        'fases_retrasadas' => $fasesRetrasadas->count()
-                    ];
-                }
-            }
-            
-            // Prepare timeline data including project names, start dates, and durations
-            $proyectosTimeline = $proyectos->map(function($proyecto) use ($today) {
-                $startDate = new \DateTime($proyecto->fecha_inicio);
-                $endDate = new \DateTime($proyecto->fecha_fin_estimada);
-                $duration = $startDate->diff($endDate)->days / 30; // Converting to months
-                
-                // Calculate time remaining (in days)
-                $diasRestantes = $today->diffInDays(Carbon::parse($proyecto->fecha_fin_estimada), false);
-                
-                // Calculate progress percentage based on dates
-                $totalDias = Carbon::parse($proyecto->fecha_inicio)->diffInDays(Carbon::parse($proyecto->fecha_fin_estimada));
-                $diasTranscurridos = Carbon::parse($proyecto->fecha_inicio)->diffInDays($today);
-                $progresoTiempo = $totalDias > 0 ? min(100, round(($diasTranscurridos / $totalDias) * 100, 1)) : 0;
-                
+                $diasRestantes = $today->diffInDays(Carbon::parse($p->fecha_fin_estimada), false);
+
                 return [
-                    'id' => $proyecto->idProyecto,
-                    'nombre' => $proyecto->nombre,
-                    'fecha_inicio' => $proyecto->fecha_inicio,
-                    'fecha_fin_estimada' => $proyecto->fecha_fin_estimada,
-                    'estado' => $proyecto->estado,
-                    'fase' => $proyecto->fase,
-                    'duration' => round($duration, 1),
+                    'id' => $p->idProyecto,
+                    'nombre' => $p->nombre,
+                    'fase' => $p->fase,
+                    'estado' => $p->estado,
                     'dias_restantes' => $diasRestantes,
-                    'retrasado' => $diasRestantes < 0 && $proyecto->estado === 'En Progreso',
-                    'progreso_tiempo' => $progresoTiempo
+                    'retrasado' => $diasRestantes < 0 && $p->estado === 'En Progreso',
+                    'progreso_tiempo' => $progresoTiempo // Progreso % de la fase actual
                 ];
             });
-            
-            // Group projects by completion month (for monthly completion trend)
-            $proyectosPorMes = [];
-            foreach ($proyectos->where('estado', 'Finalizado') as $proyecto) {
-                $fecha = Carbon::parse($proyecto->updated_at);
-                $mes = $fecha->format('Y-m');
-                
-                if (!isset($proyectosPorMes[$mes])) {
-                    $proyectosPorMes[$mes] = 0;
-                }
-                
-                $proyectosPorMes[$mes]++;
-            }
-            
-            // Sort by month
-            ksort($proyectosPorMes);
-            
-            // Convert to format for charts
-            $tendenciaFinalizacion = [];
-            foreach ($proyectosPorMes as $mes => $cantidad) {
-                $tendenciaFinalizacion[] = [
-                    'month' => $mes,
-                    'count' => $cantidad
-                ];
-            }
 
-            // 2. Obtén el ID del usuario autenticado
-            $usuarioId = Auth::id();
+            // 7. Gráfico: Radar de Salud General
+            $progresoPromedioFase = $listaProyectos->avg('progreso_tiempo');
+            $porcentajeProyectosATiempo = $totalProyectos > 0 ? round(($totalProyectos - $kpis['proyectos_retrasados']) / $totalProyectos * 100, 1) : 100;
+            $totalEnProgreso = $kpis['proyectos_en_progreso'];
+            $porcentajeFasesATiempo = $totalEnProgreso > 0 ? round($retrasoFasesEnTiempo / $totalEnProgreso * 100, 1) : 100;
+
+            $radarData = [
+                ['subject' => 'Progreso Promedio', 'value' => round($progresoPromedioFase, 1), 'fullMark' => 100],
+                ['subject' => 'Proyectos a Tiempo', 'value' => $porcentajeProyectosATiempo, 'fullMark' => 100],
+                ['subject' => 'Fases a Tiempo', 'value' => $porcentajeFasesATiempo, 'fullMark' => 100],
+                ['subject' => 'Proy. Finalizados', 'value' => $totalProyectos > 0 ? round($kpis['proyectos_finalizados'] / $totalProyectos * 100, 1) : 0, 'fullMark' => 100],
+            ];
             
-            // 3. Crea el registro en la tabla de logs
-            Log::create([
-                'id_Usuario' => $usuarioId,
-                'registro' => 'Vio las analiticas'
-            ]);
+            // Log
+            Log::create(['id_Usuario' => Auth::id(), 'registro' => 'Vio las analiticas']);
             
+            // Respuesta Final
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_proyectos' => $totalProyectos,
-                    'proyectos_por_estado' => $proyectosPorEstado,
-                    'proyectos_por_fase' => $proyectosPorFase,
-                    'proyectos_retrasados' => [
-                        'count' => $totalProyectosRetrasados,
-                        'percentage' => $porcentajeRetrasados
-                    ],
-                    'fases_porcentaje_completado' => $fasesPorcentajeCompletado,
-                    'fases_tiempo_promedio' => $fasesTiempoPromedio,
-                    'proyectos_con_fases_retrasadas' => $proyectosConFasesRetrasadas,
-                    'tendencia_finalizacion' => $tendenciaFinalizacion,
-                    'data' => $proyectosTimeline
+                    'kpis' => $kpis,
+                    'lista_proyectos' => $listaProyectos,
+                    'estado_proyectos_chart' => $estadoProyectosChart,
+                    'fase_actual_chart' => $faseActualChart,
+                    'retraso_fases_chart' => $retrasoFasesChart,
+                    'lista_fases_retrasadas' => $listaFasesRetrasadas,
+                    'radar_data' => $radarData,
                 ]
             ]);
             
@@ -215,5 +167,34 @@ class ClientDashboardController extends Controller
                 'message' => 'Error al obtener analíticas: ' . $e->getMessage()
             ], 500);
         }
+    }
+    
+    // Función helper para retornar data vacía
+    private function getEmptyAnalyticsData()
+    {
+        $kpis = [
+            'total_proyectos' => 0, 'proyectos_en_progreso' => 0,
+            'proyectos_finalizados' => 0, 'proyectos_retrasados' => 0,
+            'porcentaje_retrasados' => 0
+        ];
+        $radar = [
+            ['subject' => 'Progreso Promedio', 'value' => 0, 'fullMark' => 100],
+            ['subject' => 'Proyectos a Tiempo', 'value' => 100, 'fullMark' => 100],
+            ['subject' => 'Fases a Tiempo', 'value' => 100, 'fullMark' => 100],
+            ['subject' => 'Proy. Finalizados', 'value' => 0, 'fullMark' => 100],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'kpis' => $kpis,
+                'lista_proyectos' => [],
+                'estado_proyectos_chart' => [['name' => 'Sin Proyectos', 'value' => 1]],
+                'fase_actual_chart' => [],
+                'retraso_fases_chart' => [['name' => 'Sin Proyectos', 'value' => 1]],
+                'lista_fases_retrasadas' => [],
+                'radar_data' => $radar,
+            ]
+        ]);
     }
 }
