@@ -228,10 +228,103 @@ class ManagerProjectController extends Controller
 
 
 
-      /**
+    //   /**
+    //  * Subir un archivo a una fase específica
+    //  * 
+    //  * @param Request $request
+    //  * @return \Illuminate\Http\JsonResponse
+    //  */
+    // public function uploadFile(Request $request)
+    // {
+    //     // Validación de datos
+    //     $validator = Validator::make($request->all(), [
+    //         'archivo' => 'required|file|mimes:pdf,xls,xlsx,doc,docx,dwg|max:20480', // 20MB max
+    //         'idFase' => 'required|exists:fases,idFase',
+    //         'idProyecto' => 'required|exists:proyectos,idProyecto',
+    //         'descripcion' => 'nullable|string|max:500',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Error de validación',
+    //             'errors' => $validator->errors()
+    //         ], 422);
+    //     }
+
+    //     // Verificar que la fase pertenece al proyecto
+    //     $fase = Fase::where('idFase', $request->idFase)
+    //         ->where('idProyecto', $request->idProyecto)
+    //         ->first();
+
+    //     if (!$fase) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'La fase no pertenece al proyecto especificado'
+    //         ], 404);
+    //     }
+
+    //     try {
+    //         // Obtener el archivo
+    //         $file = $request->file('archivo');
+            
+    //         // Determinar el tipo de archivo
+    //         $fileExtension = $file->getClientOriginalExtension();
+    //         $tipoArchivo = strtolower($fileExtension);
+            
+    //         // Validar que el tipo sea permitido
+    //         $allowedTypes = ['pdf', 'xls', 'xlsx', 'doc', 'docx', 'dwg'];
+    //         if (!in_array($tipoArchivo, $allowedTypes)) {
+    //             $tipoArchivo = 'pdf'; // Tipo por defecto
+    //         }
+            
+    //         // Crear el directorio si no existe
+    //         $path = "proyectos/{$request->idProyecto}/fases/{$request->idFase}/archivos";
+            
+    //         // Generar un nombre único para el archivo
+    //         $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $file->getClientOriginalName());
+            
+    //         // Guardar el archivo en el sistema de archivos
+    //         $filePath = $file->storeAs($path, $fileName, 'public');
+            
+    //         // Guardar los datos en la base de datos
+    //         $archivo = new Archivo();
+    //         $archivo->nombre = $file->getClientOriginalName();
+    //         $archivo->idFase = $request->idFase;
+    //         $archivo->tipo = $tipoArchivo;
+    //         // $archivo->ruta = Storage::url($filePath);
+    //         $archivo->ruta = $filePath;
+    //         $archivo->descripcion = $request->descripcion ?? 'Archivo subido: ' . $file->getClientOriginalName();
+    //         $archivo->created_at = now(); // Establecer la fecha de creación
+    //         $archivo->updated_at = now(); // Establecer la fecha de actualización
+    //         $archivo->save();
+
+    //         // 2. Obtén el ID del usuario autenticado
+    //         $usuarioId = Auth::id();
+            
+    //         // 3. Crea el registro en la tabla de logs
+    //         ModelsLog::create([
+    //             'id_Usuario' => $usuarioId,
+    //             'registro' => 'Cargo un archivo al proyecto'
+    //         ]);
+            
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Archivo subido correctamente',
+    //             'data' => $archivo
+    //         ], 201);
+            
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Error al subir el archivo: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
+    /**
      * Subir un archivo a una fase específica
-     * 
-     * @param Request $request
+     * * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function uploadFile(Request $request)
@@ -284,16 +377,22 @@ class ManagerProjectController extends Controller
             // Generar un nombre único para el archivo
             $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $file->getClientOriginalName());
             
-            // Guardar el archivo en el sistema de archivos
-            $filePath = $file->storeAs($path, $fileName, 'public');
+            // --- INICIO DE CAMBIOS ---
+
+            // Guardar el archivo en el bucket S3 (usando el disco 's3' de tu .env)
+            $filePath = $file->storeAs($path, $fileName, 'minio');
             
             // Guardar los datos en la base de datos
             $archivo = new Archivo();
             $archivo->nombre = $file->getClientOriginalName();
             $archivo->idFase = $request->idFase;
             $archivo->tipo = $tipoArchivo;
-            // $archivo->ruta = Storage::url($filePath);
-            $archivo->ruta = $filePath;
+            
+            // Obtener la URL pública completa del archivo desde el bucket
+            $archivo->ruta = Storage::disk('minio')->url($filePath);
+            
+            // --- FIN DE CAMBIOS ---
+            
             $archivo->descripcion = $request->descripcion ?? 'Archivo subido: ' . $file->getClientOriginalName();
             $archivo->created_at = now(); // Establecer la fecha de creación
             $archivo->updated_at = now(); // Establecer la fecha de actualización
