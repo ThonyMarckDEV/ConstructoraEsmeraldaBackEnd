@@ -9,6 +9,7 @@ use App\Models\Log;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class ClientProjectController extends Controller
@@ -160,14 +161,60 @@ class ClientProjectController extends Controller
         return response()->json($response);
     }
 
-    public function download(Request $request, $path)
+   public function download(Request $request, $path)
     {
-        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
-        if (Storage::disk('public')->exists($path)) {
-            // Retorna el archivo forzando la descarga
-            return Storage::disk('public')->download($path);
-        } else {
-            abort(404, 'Archivo no encontrado');
+        // **Validación básica de seguridad (MUY IMPORTANTE)**
+        // Asegúrate que la URL pertenezca a tu bucket de MinIO para evitar que usen tu API como proxy abierto.
+        // Reemplaza 'TU_DOMINIO_MINIO' con el dominio real de tu servidor MinIO.
+        $minioBaseUrl = 'constructoraesmeralda-minio-server.thonymarckdev.online'; // SOLO el dominio
+        if (!str_contains($path, $minioBaseUrl)) {
+             Log::warning("Intento de descarga de URL no permitida: " . $path);
+             abort(403, 'Acceso denegado al archivo.');
+        }
+        // Validar que realmente sea una URL
+        if (!filter_var($path, FILTER_VALIDATE_URL)) {
+            Log::warning("Intento de descarga con path inválido (no URL): " . $path);
+            abort(400, 'Ruta de archivo inválida.');
+        }
+
+
+        try {
+            // 1. Realiza la petición GET a la URL de MinIO
+            $response = Http::timeout(60)->get($path); // Aumenta el timeout si son archivos grandes
+
+            // 2. Verifica si la descarga desde MinIO fue exitosa
+            if ($response->successful()) {
+                $fileContent = $response->body(); // Obtiene el contenido del archivo
+                $contentType = $response->header('Content-Type') ?: 'application/octet-stream'; // Obtiene el tipo de contenido original o usa uno genérico
+                
+                // Extrae el nombre del archivo de la URL
+                $fileName = basename(parse_url($path, PHP_URL_PATH)); 
+
+                // 3. Prepara las cabeceras para forzar la descarga en el navegador del usuario
+                $headers = [
+                    'Content-Type' => $contentType,
+                    'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                    // Podrías añadir Content-Length si lo necesitas, aunque no es estrictamente necesario para streamDownload
+                    // 'Content-Length' => strlen($fileContent) 
+                ];
+
+                // 4. Devuelve el contenido del archivo con las cabeceras de descarga
+                // Opción A: Devolver directamente (funciona bien para archivos no gigantes)
+                return response($fileContent, 200, $headers);
+
+            } else {
+                // Si MinIO devolvió un error (ej. 404 Not Found, 403 Forbidden)
+                Log::error("Error al descargar desde MinIO: URL=" . $path . " Status=" . $response->status());
+                abort(404, 'Archivo no encontrado en el servidor de almacenamiento o acceso denegado.');
+            }
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+             // Error si no se puede conectar a MinIO
+             Log::error("Error de conexión al descargar desde MinIO: URL=" . $path . " Error=" . $e->getMessage());
+             abort(503, 'No se pudo conectar al servidor de archivos.'); // Service Unavailable
+        } catch (\Exception $e) {
+            // Cualquier otro error inesperado
+            Log::error("Error inesperado en la descarga: URL=" . $path . " Error=" . $e->getMessage());
+            abort(500, 'Ocurrió un error interno al intentar descargar el archivo.');
         }
     }
 }
