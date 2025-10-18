@@ -149,9 +149,10 @@ class ClientProjectController extends Controller
                     'idFase' => $phase->idFase,
                     'nombreFase' => $phase->nombreFase,
                     'descripcion' => $phase->descripcion,
-                    'es_actual' => $phase->nombreFase === $project->fase, // Indica si es la fase actual
+                    'es_actual' => $phase->nombreFase === $project->fase,
                     'archivos' => $files,
-                    'fotos' => $photos
+                    'fotos' => $photos,
+                    'modelo' => $phase->modelo
                 ];
             })
         ];
