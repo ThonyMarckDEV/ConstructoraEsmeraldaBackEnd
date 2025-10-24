@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class ManagerDashboardController extends Controller
 {
-public function getAnalytics($idEncargado) // Recibe idEncargado de la ruta
+public function getAnalytics($idEncargado) 
     {
         try {
             // Validar que el encargado existe y tiene el rol correcto (ej. idRol = 3 para encargado)
@@ -36,8 +36,6 @@ public function getAnalytics($idEncargado) // Recibe idEncargado de la ruta
             ];
             $phaseIndex = array_flip($nombresFases);
             $totalFasesCount = count($nombresFases);
-
-            // --- Cálculos Simplificados ---
 
             // 1. KPIs Principales
             $proyectosEnProgreso = $proyectos->where('estado', 'En Progreso');
@@ -153,11 +151,7 @@ public function getAnalytics($idEncargado) // Recibe idEncargado de la ruta
                 ['subject' => 'Fases a Tiempo', 'value' => $porcentajeFasesATiempo, 'fullMark' => 100],
                 ['subject' => 'Proy. Finaliz.', 'value' => $totalProyectos > 0 ? round($kpis['proyectos_finalizados'] / $totalProyectos * 100, 1) : 0, 'fullMark' => 100],
             ];
-            
-            // Podrías añadir un Log aquí si quieres registrar la consulta del encargado
-            // Log::create(['id_Usuario' => $idEncargado, 'registro' => 'Vio sus analíticas']);
-            
-            // --- Respuesta Final ---
+
             return response()->json([
                 'success' => true,
                 'data' => [
