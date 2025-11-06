@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Proyecto;
 use App\Models\Fase;
 use App\Models\Chat;
+use App\Models\Log;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -86,6 +88,15 @@ class ProyectoController extends Controller
                 'idProyecto' => $proyecto->idProyecto,
             ]);
 
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Creo un proyecto'
+            ]);
+
             DB::commit();
             return response()->json(['message' => 'Proyecto creado exitosamente', 'proyecto' => $proyecto->load(['fases', 'encargado.datos', 'cliente.datos'])], 201);
         } catch (\Exception $e) {
@@ -152,13 +163,30 @@ class ProyectoController extends Controller
                     }
                 }
             }
+            
+             // Actualiza o crea el chat asociado al proyecto
+            $chat = Chat::where('idProyecto', $proyecto->idProyecto)->first();
+            if ($chat) {
+                $chat->update([
+                    'idCliente' => $request->idCliente,
+                    'idEncargado' => $request->idEncargado,
+                ]);
+            } else {
+                Chat::create([
+                    'idCliente' => $request->idCliente,
+                    'idEncargado' => $request->idEncargado,
+                    'idProyecto' => $proyecto->idProyecto,
+                ]);
+            }
 
-            // Delete existing chat and create a new one
-            Chat::where('idProyecto', $proyecto->idProyecto)->delete();
-            Chat::create([
-                'idCliente' => $request->idCliente,
-                'idEncargado' => $request->idEncargado,
-                'idProyecto' => $proyecto->idProyecto,
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo un proyecto'
             ]);
 
             DB::commit();
@@ -176,6 +204,16 @@ class ProyectoController extends Controller
             DB::beginTransaction();
             Chat::where('idProyecto', $id)->delete();
             $proyecto->delete();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Elimino un proyecto'
+            ]);
+
             DB::commit();
             return response()->json(['message' => 'Proyecto eliminado exitosamente'], 200);
         } catch (\Exception $e) {
@@ -205,6 +243,30 @@ class ProyectoController extends Controller
             return response()->json($clientes, 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error al cargar clientes: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function getChatIdByProyecto(Request $request, $proyectoId)
+    {
+        try {
+            // Find the chat associated with the project ID
+            $chat = Chat::where('idProyecto', $proyectoId)->first();
+
+            if (!$chat) {
+                return response()->json([
+                    'message' => 'No se encontró un chat asociado con el proyecto especificado.'
+                ], 404);
+            }
+
+            return response()->json([
+                'idChat' => $chat->idChat
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener el ID del chat.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

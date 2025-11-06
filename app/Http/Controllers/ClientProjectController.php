@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Archivo;
 use App\Models\Fase;
 use App\Models\Foto;
+use App\Models\Log;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class ClientProjectController extends Controller
@@ -30,18 +32,27 @@ class ClientProjectController extends Controller
                         }])
                         ->get();
         
-        // For each project, get its phases
         foreach ($projects as $project) {
             $project->fases = Fase::where('idProyecto', $project->idProyecto)
                                 ->orderBy('idFase', 'asc')
                                 ->get();
         }
         
+
+           // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Obtuvo los proyectos del cliente con sus fases'
+            ]);
+
         return response()->json($projects);
     }
 
     /**
-     * Get a specific project with its phases by ID for a client
+     * obtiene un proyecto específico con sus fases por ID para un cliente
      */
     public function getProjectWithPhases($id)
     {
@@ -63,8 +74,16 @@ class ClientProjectController extends Controller
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
+
+        // 2. Obtén el ID del usuario autenticado
+        $usuarioId = Auth::id();
         
-        // Return combined data in a single response
+        // 3. Crea el registro en la tabla de logs
+        Log::create([
+            'id_Usuario' => $usuarioId,
+            'registro' => 'Obtuvo el detalle de un proyecto del cliente con sus fases'
+        ]);
+    
         return response()->json([
             'proyecto' => $project,
             'fases' => $phases
@@ -72,14 +91,14 @@ class ClientProjectController extends Controller
     }
 
     /**
-     * Get phases with files and photos for a specific project
+     * obtiene un proyecto específico con sus fases, archivos y fotos por ID para cliente o encargado
      */
     public function getProjectDetails($id)
     {
-        // This method works for both client and manager, just need to check auth
+ 
         $userId = Auth::id();
         
-        // Find the project ensuring the current user is either client or manager
+
         $project = Proyecto::where('idProyecto', $id)
                         ->where(function($query) use ($userId) {
                             $query->where('idCliente', $userId)
@@ -92,16 +111,16 @@ class ClientProjectController extends Controller
             return response()->json(['message' => 'Proyecto no encontrado'], 404);
         }
         
-        // Get phases for this project
+    
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
 
-        // Structure the response
+
         $response = [
-            'fase_actual' => $project->fase, // Nombre de la fase actual del proyecto
+            'fase_actual' => $project->fase,
             'fases' => $phases->map(function ($phase) use ($project) {
-                // Get files for this phase
+          
                 $files = Archivo::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($file) {
@@ -113,7 +132,7 @@ class ClientProjectController extends Controller
                                 ];
                             });
                 
-                // Get photos for this phase
+              
                 $photos = Foto::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($photo) {
@@ -129,9 +148,10 @@ class ClientProjectController extends Controller
                     'idFase' => $phase->idFase,
                     'nombreFase' => $phase->nombreFase,
                     'descripcion' => $phase->descripcion,
-                    'es_actual' => $phase->nombreFase === $project->fase, // Indica si es la fase actual
+                    'es_actual' => $phase->nombreFase === $project->fase,
                     'archivos' => $files,
-                    'fotos' => $photos
+                    'fotos' => $photos,
+                    'modelo' => $phase->modelo
                 ];
             })
         ];
@@ -139,14 +159,48 @@ class ClientProjectController extends Controller
         return response()->json($response);
     }
 
-    public function download(Request $request, $path)
+   public function download(Request $request, $path)
     {
-        // Verifica que el archivo exista en el disco (por ejemplo, 'public')
-        if (Storage::disk('public')->exists($path)) {
-            // Retorna el archivo forzando la descarga
-            return Storage::disk('public')->download($path);
-        } else {
-            abort(404, 'Archivo no encontrado');
+        $minioBaseUrl = 'constructoraesmeralda-minio-server.thonymarckdev.online';
+        if (!str_contains($path, $minioBaseUrl)) {
+             Log::warning("Intento de descarga de URL no permitida: " . $path);
+             abort(403, 'Acceso denegado al archivo.');
+        }
+        // Validar que realmente sea una URL
+        if (!filter_var($path, FILTER_VALIDATE_URL)) {
+            Log::warning("Intento de descarga con path inválido (no URL): " . $path);
+            abort(400, 'Ruta de archivo inválida.');
+        }
+
+
+        try {
+            $response = Http::timeout(60)->get($path); 
+
+            if ($response->successful()) {
+                $fileContent = $response->body();
+                $contentType = $response->header('Content-Type') ?: 'application/octet-stream';
+                
+                $fileName = basename(parse_url($path, PHP_URL_PATH)); 
+
+                $headers = [
+                    'Content-Type' => $contentType,
+                    'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                ];
+
+                return response($fileContent, 200, $headers);
+
+            } else {
+                Log::error("Error al descargar desde MinIO: URL=" . $path . " Status=" . $response->status());
+                abort(404, 'Archivo no encontrado en el servidor de almacenamiento o acceso denegado.');
+            }
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+
+             Log::error("Error de conexión al descargar desde MinIO: URL=" . $path . " Error=" . $e->getMessage());
+             abort(503, 'No se pudo conectar al servidor de archivos.'); // Service Unavailable
+        } catch (\Exception $e) {
+ 
+            Log::error("Error inesperado en la descarga: URL=" . $path . " Error=" . $e->getMessage());
+            abort(500, 'Ocurrió un error interno al intentar descargar el archivo.');
         }
     }
 }

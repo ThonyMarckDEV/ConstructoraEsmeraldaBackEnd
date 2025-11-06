@@ -1,9 +1,10 @@
 <?php
 
+use App\Http\Controllers\ClientDashboardController;
+use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientProjectController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\ManagerProjectController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,10 @@ Route::middleware(['auth.jwt', 'checkRoleMW:cliente'])->group(function () {
 
         Route::get('/client/project/{id}/details', [ClientProjectController::class, 'getProjectDetails']);
 
+          
+        // Get projects analytics 
+        Route::get('/client/projects/analytics', [ClientDashboardController::class ,'getAnalytics']);
+
 });
 
 // RUTAS PARA cliente VALIDADA POR MIDDLEWARE AUTH (PARA TOKEN JWT) Y CHECKROLE (PARA VALIDAR ROL DEL TOKEN)
@@ -60,7 +65,7 @@ Route::middleware(['auth.jwt', 'checkRoleMW:manager'])->group(function () {
 
 
          // Get projects analytics 
-        Route::get('/encargados/{idEncargado}/projects/analytics', [DashboardController::class ,'getAnalytics']);
+        Route::get('/encargados/{idEncargado}/projects/analytics', [ManagerDashboardController::class ,'getAnalytics']);
   
 });
 
@@ -103,6 +108,8 @@ Route::middleware(['auth.jwt', 'checkRolesMW'])->group(function () {
         Route::get('/project/files/download/{path}', [ClientProjectController::class, 'download'])
         ->where('path', '.*')
         ->name('files.download');
+
+        Route::get('/project/{proyectoId}/chat-id', [ProyectoController::class, 'getChatIdByProyecto']);
   
 });
 

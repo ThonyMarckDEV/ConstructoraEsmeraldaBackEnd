@@ -11,7 +11,7 @@ class CreateFasesTable extends Migration
     {
         Schema::create('fases', function (Blueprint $table) {
             $table->bigIncrements('idFase');
-            $table->unsignedBigInteger('idProyecto'); // FK: referencia a usuarios.idUsuario
+            $table->unsignedBigInteger('idProyecto');
             $table->enum('nombreFase', [
                 'Planificación',
                 'Preparación del Terreno',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Archivo;
 use App\Models\Fase;
 use App\Models\Foto;
+use App\Models\Log as ModelsLog;
 use App\Models\Proyecto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,13 +17,13 @@ class ManagerProjectController extends Controller
 {
 
      /**
-     * Get all projects with their phases for a manager, including client information
+     * Obtiene todos los proyectos con sus fases para un encargado, incluyendo información del cliente
      */
     public function getManagerProjectsWithPhases()
     {
         $encargadoId = Auth::id();
         
-        // Get all projects for this manager with client information
+        // Obtener todos los proyectos de este encargado con información del cliente
         $projects = Proyecto::where('idEncargado', $encargadoId)
                         ->with(['cliente' => function($query) {
                             $query->select('idUsuario', 'idDatos', 'username');
@@ -31,7 +32,6 @@ class ManagerProjectController extends Controller
                         }])
                         ->get();
         
-        // For each project, get its phases
         foreach ($projects as $project) {
             $project->fases = Fase::where('idProyecto', $project->idProyecto)
                                 ->orderBy('idFase', 'asc')
@@ -42,7 +42,7 @@ class ManagerProjectController extends Controller
     }
 
     /**
-     * Get a specific project with its phases by ID for a manager
+     * Obtiene un proyecto específico con sus fases e información del cliente
      */
     public function getProjectWithPhases($id)
     {
@@ -65,7 +65,6 @@ class ManagerProjectController extends Controller
                     ->orderBy('idFase', 'asc')
                     ->get();
         
-        // Return combined data in a single response
         return response()->json([
             'proyecto' => $project,
             'fases' => $phases
@@ -73,13 +72,12 @@ class ManagerProjectController extends Controller
     }
 
     /**
-     * Get phases with files and photos for a specific project
+     * Obtiene los detalles de un proyecto específico, incluyendo fases, archivos y fotos
      */
     public function getProjectDetails($id)
     {
         $encargadoId = Auth::id();
         
-        // Update to include datos table
         $project = Proyecto::where('idProyecto', $id)
                         ->where('idEncargado', $encargadoId)
                         ->with(['cliente.datos'])
@@ -89,16 +87,14 @@ class ManagerProjectController extends Controller
             return response()->json(['message' => 'Proyecto no encontrado'], 404);
         }
         
-        // Get phases for this project
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
 
-        // Structure the response
         $response = [
-            'fase_actual' => $project->fase, // Nombre de la fase actual del proyecto
+            'fase_actual' => $project->fase,
             'fases' => $phases->map(function ($phase) use ($project) {
-                // Get files for this phase
+    
                 $files = Archivo::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($file) {
@@ -110,7 +106,7 @@ class ManagerProjectController extends Controller
                                 ];
                             });
                 
-                // Get photos for this phase
+
                 $photos = Foto::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($photo) {
@@ -126,7 +122,7 @@ class ManagerProjectController extends Controller
                     'idFase' => $phase->idFase,
                     'nombreFase' => $phase->nombreFase,
                     'descripcion' => $phase->descripcion,
-                    'es_actual' => $phase->nombreFase === $project->fase, // Indica si es la fase actual
+                    'es_actual' => $phase->nombreFase === $project->fase,
                     'archivos' => $files,
                     'fotos' => $photos
                 ];
@@ -198,6 +194,15 @@ class ManagerProjectController extends Controller
             // Registrar la actividad
             Log::info("Proyecto ID {$id} actualizado a fase: {$nuevaFase}");
 
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            ModelsLog::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo la fase de proyecto'
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Fase del proyecto actualizada correctamente',
@@ -214,14 +219,9 @@ class ManagerProjectController extends Controller
             }
         }
 
-
-
-
-
-      /**
+    /**
      * Subir un archivo a una fase específica
-     * 
-     * @param Request $request
+     * * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function uploadFile(Request $request)
@@ -274,20 +274,33 @@ class ManagerProjectController extends Controller
             // Generar un nombre único para el archivo
             $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $file->getClientOriginalName());
             
-            // Guardar el archivo en el sistema de archivos
-            $filePath = $file->storeAs($path, $fileName, 'public');
+
+            // Guardar el archivo en el bucket S3 (usando el disco 's3' de tu .env)
+            $filePath = $file->storeAs($path, $fileName, 'minio');
             
             // Guardar los datos en la base de datos
             $archivo = new Archivo();
             $archivo->nombre = $file->getClientOriginalName();
             $archivo->idFase = $request->idFase;
             $archivo->tipo = $tipoArchivo;
-            // $archivo->ruta = Storage::url($filePath);
-            $archivo->ruta = $filePath;
+            
+            // Obtener la URL pública completa del archivo desde el bucket
+            $archivo->ruta = Storage::disk('minio')->url($filePath);
+            
+            
             $archivo->descripcion = $request->descripcion ?? 'Archivo subido: ' . $file->getClientOriginalName();
             $archivo->created_at = now(); // Establecer la fecha de creación
             $archivo->updated_at = now(); // Establecer la fecha de actualización
             $archivo->save();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            ModelsLog::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cargo un archivo al proyecto'
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -339,7 +352,7 @@ class ManagerProjectController extends Controller
             ], 404);
         }
 
-        try {
+       try {
             // Obtener la foto
             $photo = $request->file('foto');
             
@@ -359,20 +372,31 @@ class ManagerProjectController extends Controller
             // Generar un nombre único para la foto
             $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $photo->getClientOriginalName());
             
-            // Guardar la foto en el sistema de archivos
-            $filePath = $photo->storeAs($path, $fileName, 'public');
+            // Guardar la foto en el sistema de archivos (¡esto ya estaba bien!)
+            $filePath = $photo->storeAs($path, $fileName, 'minio');
 
             // Guardar los datos en la base de datos
             $foto = new Foto();
             $foto->nombre = $photo->getClientOriginalName();
             $foto->idFase = $request->idFase;
             $foto->tipo = $tipoFoto;
-           // $foto->ruta = Storage::url($filePath);
-            $foto->ruta = $filePath;
+            
+            // Obtener la URL pública completa del archivo desde el bucket
+            $foto->ruta = Storage::disk('minio')->url($filePath);
+
             $foto->descripcion = $request->descripcion ?? 'Foto subida: ' . $photo->getClientOriginalName();
             $foto->created_at = now(); // Establecer la fecha de creación
             $foto->updated_at = now(); // Establecer la fecha de actualización
             $foto->save();
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            ModelsLog::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cargo una foto al proyecto'
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -388,7 +412,7 @@ class ManagerProjectController extends Controller
         }
     }
 
-    public function deleteFile(Request $request)
+public function deleteFile(Request $request)
     {
         $request->validate([
             'id' => 'required|integer',
@@ -398,19 +422,37 @@ class ManagerProjectController extends Controller
         try {
             if ($request->type === 'archivo') {
                 $file = Archivo::findOrFail($request->id);
-                $path = $file->ruta;
+                $path = $file->ruta; // $path contiene la URL completa
                 $file->delete();
             } else {
                 $file = Foto::findOrFail($request->id);
-                $path = $file->ruta;
+                $path = $file->ruta; // $path contiene la URL completa
                 $file->delete();
             }
-    
-            // Eliminar el archivo físico
-            // Usar el disco 'public' explícitamente
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
+
+            // 1. Obtener la URL base de tu config de minio
+            $baseUrl = config('filesystems.disks.minio.url');
+
+            if (!$baseUrl) {
+                throw new \Exception("La URL base de MINIO (MINIO_URL) no está configurada.");
             }
+
+            // 2. Extraer la ruta relativa de la URL completa
+            $relativePath = ltrim(str_replace($baseUrl, '', $path), '/');
+            
+            // 3. Eliminar el archivo físico del disco 'minio'
+            // Se elimina la comprobación 'exists()' ya que puede fallar por
+            // permisos (ej. ListBucket) y es redundante.
+            Storage::disk('minio')->delete($relativePath);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            ModelsLog::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Borro un archivo del proyecto'
+            ]);
     
             return response()->json([
                 'success' => true,
@@ -427,12 +469,12 @@ class ManagerProjectController extends Controller
 
     
 
-    public function obtenerModelo($idProyecto, $idFase)
+      public function obtenerModelo($idProyecto, $idFase)
     {
-        // Find the project to ensure it exists
+        // Buscar el proyecto para asegurarse de que existe
         $proyecto = Proyecto::findOrFail($idProyecto);
         
-        // Find the phase and its model
+        // Buscar la fase y su modelo
         $fase = Fase::where('idFase', $idFase)
                     ->where('idProyecto', $idProyecto)
                     ->firstOrFail();
@@ -444,39 +486,62 @@ class ManagerProjectController extends Controller
             ], 404);
         }
 
+        // Obtener la URL base desde la configuración de la app
+        $baseUrl = config('app.url');
+
         return response()->json([
             'success' => true,
             'data' => [
                 'modelo_path' => $fase->modelo,
-                'modelo_url' => "http://localhost:8000/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
+                // Construir la URL dinámicamente basado en el entorno
+                'modelo_url' => "{$baseUrl}/api/manager/project/{$idProyecto}/{$idFase}/modelo-file"
             ]
         ]);
     }
 
     public function descargarModelo($idProyecto, $idFase)
     {
-        // Find the project to ensure it exists
+        // Buscar el proyecto para asegurarse de que existe
         $proyecto = Proyecto::findOrFail($idProyecto);
         
-        // Find the phase and its model
+        // Buscar la fase y su modelo
         $fase = Fase::where('idFase', $idFase)
                     ->where('idProyecto', $idProyecto)
                     ->firstOrFail();
-        
-        $rutaModelo = storage_path('app/public/' . $fase->modelo);
-    
-        if (!file_exists($rutaModelo)) {
-            abort(404, 'Archivo de modelo no encontrado');
+
+        if (empty($fase->modelo)) {
+            abort(404, 'La fase no tiene modelo asociado');
+        }
+
+        // 1. Obtener la URL base de MinIO
+        $baseUrl = config('filesystems.disks.minio.url');
+        if (!$baseUrl || strpos($fase->modelo, $baseUrl) !== 0) {
+            abort(500, 'Configuración de MINIO_URL inválida o la ruta del modelo no coincide.');
+        }
+
+        // 2. Extraer la ruta relativa de la URL completa
+        $relativePath = ltrim(str_replace($baseUrl, '', $fase->modelo), '/');
+
+        // 3. Comprobar si el archivo existe en MinIO
+        if (!Storage::disk('minio')->exists($relativePath)) {
+            abort(404, 'Archivo de modelo no encontrado en el bucket');
         }
     
-        $response = response()->file($rutaModelo, [
+        // 4. Obtener el stream del archivo desde MinIO y devolverlo como descarga
+        $response = Storage::disk('minio')->response($relativePath, null, [
             'Content-Type' => 'model/gltf-binary',
         ]);
+        
     
-        // Add CORS headers
-        $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
+        // Determinar el origen permitido basado en el entorno de la aplicación
+        $allowedOrigin = (config('app.env') === 'production')
+            ? config('app.frontend_url') // URL de producción desde config/app.php
+            : 'http://localhost:3000';   // URL para desarrollo local
+
+        // Agregar encabezados CORS
+        $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
-        $response->headers->set('Access-Control-Expose-Headers', 'Content-Disposition');
+        $response->headers->set('Access-control-expose-headers', 'Content-Disposition');
     
         return $response;
     }
@@ -555,20 +620,38 @@ class ManagerProjectController extends Controller
             $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
             Log::info('Nombre limpio generado:', ['cleanName' => $cleanName]);
 
+
             // Verificar si hay un modelo anterior para eliminarlo
-            if ($fase->modelo && Storage::disk('public')->exists($fase->modelo)) {
-                Log::info('Eliminando modelo anterior:', ['modelo' => $fase->modelo]);
-                Storage::disk('public')->delete($fase->modelo);
+            if ($fase->modelo) {
+                $baseUrl = config('filesystems.disks.minio.url');
+                
+                if ($baseUrl && strpos($fase->modelo, $baseUrl) === 0) {
+                    $relativePath = ltrim(str_replace($baseUrl, '', $fase->modelo), '/');
+                    Log::info('Eliminando modelo anterior:', ['relativePath' => $relativePath]);
+                    
+                    // Eliminar del disco 'minio'
+                    Storage::disk('minio')->delete($relativePath);
+                }
             }
 
-            // Guardar el modelo en el sistema de archivos
-            $filePath = $file->storeAs($path, $cleanName, 'public');
-            Log::info('Modelo guardado en:', ['filePath' => $filePath]);
+            // Guardar el modelo en el disco 'minio'
+            $filePath = $file->storeAs($path, $cleanName, 'minio');
+            Log::info('Modelo guardado en MinIO:', ['filePath' => $filePath]);
 
             // Actualizar la ruta del modelo en la base de datos
-            $fase->modelo = $filePath;
+            // Guardar la URL pública completa
+            $fase->modelo = Storage::disk('minio')->url($filePath);
             $fase->save();
-            Log::info('Ruta del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
+            Log::info('URL del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            ModelsLog::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Subio un modelo al proyecto'
+            ]);
 
             return response()->json([
                 'success' => true,

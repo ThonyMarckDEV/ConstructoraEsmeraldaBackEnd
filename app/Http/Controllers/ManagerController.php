@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Datos;
+use App\Models\Log;
 use App\Models\Proyecto;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -13,7 +15,7 @@ use Illuminate\Support\Facades\Validator;
 class ManagerController extends Controller
 {
     /**
-     * Display a listing of the supervisors.
+     * Muestra una lista de todos los supervisores.
      */
     public function index()
     {
@@ -31,7 +33,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Store a newly created supervisor in storage.
+     * Agrega un nuevo supervisor.
      */
     public function store(Request $request)
     {
@@ -77,6 +79,17 @@ class ManagerController extends Controller
 
             DB::commit();
 
+            
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Creo un encargado de proyecto'
+            ]);
+
+
             return response()->json([
                 'message' => 'Encargado creado exitosamente',
                 'encargado' => [
@@ -91,7 +104,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Display the specified supervisor.
+     * Muestra el supervisor especificado.
      */
     public function show($id)
     {
@@ -108,7 +121,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Update the specified supervisor in storage.
+     * Actualiza el supervisor especificado.
      */
     public function update(Request $request, $id)
     {
@@ -177,6 +190,15 @@ class ManagerController extends Controller
 
             DB::commit();
 
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Actualizo un encargado de proyecto'
+            ]);
+
             return response()->json([
                 'message' => 'Encargado actualizado exitosamente',
                 'encargado' => [
@@ -191,7 +213,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Remove the specified supervisor from storage.
+     * Remueve el supervisor especificado.
      */
     public function destroy($id)
     {
@@ -200,7 +222,7 @@ class ManagerController extends Controller
                          ->where('idUsuario', $id)
                          ->firstOrFail();
             
-            // Check for active projects
+            // Chequear si el encargado está asociado a proyectos en progreso
             $activeProject = Proyecto::where('idEncargado', $id)
                                     ->where('estado', 'En Progreso')
                                     ->exists();
@@ -211,8 +233,17 @@ class ManagerController extends Controller
                 ], 400);
             }
             
-            // Soft delete by changing estado to inactivo
+            // Cambiar el estado a 'inactivo'
             $encargado->update(['estado' => 'inactivo']);
+
+            // 2. Obtén el ID del usuario autenticado
+            $usuarioId = Auth::id();
+            
+            // 3. Crea el registro en la tabla de logs
+            Log::create([
+                'id_Usuario' => $usuarioId,
+                'registro' => 'Cambio el estado de un encargado de proyecto'
+            ]);
             
             return response()->json(['message' => 'Encargado desactivado exitosamente']);
         } catch (\Exception $e) {
