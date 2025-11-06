@@ -32,7 +32,6 @@ class ClientProjectController extends Controller
                         }])
                         ->get();
         
-        // For each project, get its phases
         foreach ($projects as $project) {
             $project->fases = Fase::where('idProyecto', $project->idProyecto)
                                 ->orderBy('idFase', 'asc')
@@ -53,7 +52,7 @@ class ClientProjectController extends Controller
     }
 
     /**
-     * Get a specific project with its phases by ID for a client
+     * obtiene un proyecto específico con sus fases por ID para un cliente
      */
     public function getProjectWithPhases($id)
     {
@@ -85,7 +84,6 @@ class ClientProjectController extends Controller
             'registro' => 'Obtuvo el detalle de un proyecto del cliente con sus fases'
         ]);
     
-        // Return combined data in a single response
         return response()->json([
             'proyecto' => $project,
             'fases' => $phases
@@ -93,14 +91,14 @@ class ClientProjectController extends Controller
     }
 
     /**
-     * Get phases with files and photos for a specific project
+     * obtiene un proyecto específico con sus fases, archivos y fotos por ID para cliente o encargado
      */
     public function getProjectDetails($id)
     {
-        // This method works for both client and manager, just need to check auth
+ 
         $userId = Auth::id();
         
-        // Find the project ensuring the current user is either client or manager
+
         $project = Proyecto::where('idProyecto', $id)
                         ->where(function($query) use ($userId) {
                             $query->where('idCliente', $userId)
@@ -113,16 +111,16 @@ class ClientProjectController extends Controller
             return response()->json(['message' => 'Proyecto no encontrado'], 404);
         }
         
-        // Get phases for this project
+    
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
 
-        // Structure the response
+
         $response = [
             'fase_actual' => $project->fase,
             'fases' => $phases->map(function ($phase) use ($project) {
-                // Get files for this phase
+          
                 $files = Archivo::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($file) {
@@ -134,7 +132,7 @@ class ClientProjectController extends Controller
                                 ];
                             });
                 
-                // Get photos for this phase
+              
                 $photos = Foto::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($photo) {

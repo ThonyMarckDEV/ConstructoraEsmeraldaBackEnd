@@ -14,7 +14,6 @@ class ManagerDashboardController extends Controller
 public function getAnalytics($idEncargado) 
     {
         try {
-            // Validar que el encargado existe y tiene el rol correcto (ej. idRol = 3 para encargado)
             $encargado = User::where('idUsuario', $idEncargado)->where('idRol', 3)->firstOrFail();
             
             $today = Carbon::today();
@@ -24,7 +23,7 @@ public function getAnalytics($idEncargado)
             $totalProyectos = $proyectos->count();
 
             if ($totalProyectos === 0) {
-                return $this->getEmptyAnalyticsData(); // Retorna datos vacíos si no hay proyectos
+                return $this->getEmptyAnalyticsData(); 
             }
 
             // Fases de los proyectos de este encargado

@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Validator;
 class ManagerController extends Controller
 {
     /**
-     * Display a listing of the supervisors.
+     * Muestra una lista de todos los supervisores.
      */
     public function index()
     {
@@ -33,7 +33,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Store a newly created supervisor in storage.
+     * Agrega un nuevo supervisor.
      */
     public function store(Request $request)
     {
@@ -104,7 +104,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Display the specified supervisor.
+     * Muestra el supervisor especificado.
      */
     public function show($id)
     {
@@ -121,7 +121,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Update the specified supervisor in storage.
+     * Actualiza el supervisor especificado.
      */
     public function update(Request $request, $id)
     {
@@ -213,7 +213,7 @@ class ManagerController extends Controller
     }
 
     /**
-     * Remove the specified supervisor from storage.
+     * Remueve el supervisor especificado.
      */
     public function destroy($id)
     {
@@ -222,7 +222,7 @@ class ManagerController extends Controller
                          ->where('idUsuario', $id)
                          ->firstOrFail();
             
-            // Check for active projects
+            // Chequear si el encargado está asociado a proyectos en progreso
             $activeProject = Proyecto::where('idEncargado', $id)
                                     ->where('estado', 'En Progreso')
                                     ->exists();
@@ -233,7 +233,7 @@ class ManagerController extends Controller
                 ], 400);
             }
             
-            // Soft delete by changing estado to inactivo
+            // Cambiar el estado a 'inactivo'
             $encargado->update(['estado' => 'inactivo']);
 
             // 2. Obtén el ID del usuario autenticado

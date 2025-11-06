@@ -9,7 +9,7 @@ class CorsMiddleware
     public function handle($request, Closure $next)
     {
         $allowedOrigins = [
-            'https://constructora-esmeralda-front-end.vercel.app',
+            'https://constructora-esmeralda.vercel.app',
             'http://localhost:3000'
         ];
 

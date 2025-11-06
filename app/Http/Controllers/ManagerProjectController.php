@@ -17,13 +17,13 @@ class ManagerProjectController extends Controller
 {
 
      /**
-     * Get all projects with their phases for a manager, including client information
+     * Obtiene todos los proyectos con sus fases para un encargado, incluyendo información del cliente
      */
     public function getManagerProjectsWithPhases()
     {
         $encargadoId = Auth::id();
         
-        // Get all projects for this manager with client information
+        // Obtener todos los proyectos de este encargado con información del cliente
         $projects = Proyecto::where('idEncargado', $encargadoId)
                         ->with(['cliente' => function($query) {
                             $query->select('idUsuario', 'idDatos', 'username');
@@ -32,7 +32,6 @@ class ManagerProjectController extends Controller
                         }])
                         ->get();
         
-        // For each project, get its phases
         foreach ($projects as $project) {
             $project->fases = Fase::where('idProyecto', $project->idProyecto)
                                 ->orderBy('idFase', 'asc')
@@ -43,7 +42,7 @@ class ManagerProjectController extends Controller
     }
 
     /**
-     * Get a specific project with its phases by ID for a manager
+     * Obtiene un proyecto específico con sus fases e información del cliente
      */
     public function getProjectWithPhases($id)
     {
@@ -66,7 +65,6 @@ class ManagerProjectController extends Controller
                     ->orderBy('idFase', 'asc')
                     ->get();
         
-        // Return combined data in a single response
         return response()->json([
             'proyecto' => $project,
             'fases' => $phases
@@ -74,13 +72,12 @@ class ManagerProjectController extends Controller
     }
 
     /**
-     * Get phases with files and photos for a specific project
+     * Obtiene los detalles de un proyecto específico, incluyendo fases, archivos y fotos
      */
     public function getProjectDetails($id)
     {
         $encargadoId = Auth::id();
         
-        // Update to include datos table
         $project = Proyecto::where('idProyecto', $id)
                         ->where('idEncargado', $encargadoId)
                         ->with(['cliente.datos'])
@@ -90,16 +87,14 @@ class ManagerProjectController extends Controller
             return response()->json(['message' => 'Proyecto no encontrado'], 404);
         }
         
-        // Get phases for this project
         $phases = Fase::where('idProyecto', $id)
                     ->orderBy('idFase', 'asc')
                     ->get();
 
-        // Structure the response
         $response = [
-            'fase_actual' => $project->fase, // Nombre de la fase actual del proyecto
+            'fase_actual' => $project->fase,
             'fases' => $phases->map(function ($phase) use ($project) {
-                // Get files for this phase
+    
                 $files = Archivo::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($file) {
@@ -111,7 +106,7 @@ class ManagerProjectController extends Controller
                                 ];
                             });
                 
-                // Get photos for this phase
+
                 $photos = Foto::where('idFase', $phase->idFase)
                             ->get()
                             ->map(function ($photo) {
@@ -127,7 +122,7 @@ class ManagerProjectController extends Controller
                     'idFase' => $phase->idFase,
                     'nombreFase' => $phase->nombreFase,
                     'descripcion' => $phase->descripcion,
-                    'es_actual' => $phase->nombreFase === $project->fase, // Indica si es la fase actual
+                    'es_actual' => $phase->nombreFase === $project->fase,
                     'archivos' => $files,
                     'fotos' => $photos
                 ];
@@ -279,7 +274,6 @@ class ManagerProjectController extends Controller
             // Generar un nombre único para el archivo
             $fileName = time() . '_' . preg_replace('/[^A-Za-z0-9_.-]/', '', $file->getClientOriginalName());
             
-            // --- INICIO DE CAMBIOS ---
 
             // Guardar el archivo en el bucket S3 (usando el disco 's3' de tu .env)
             $filePath = $file->storeAs($path, $fileName, 'minio');
@@ -293,7 +287,6 @@ class ManagerProjectController extends Controller
             // Obtener la URL pública completa del archivo desde el bucket
             $archivo->ruta = Storage::disk('minio')->url($filePath);
             
-            // --- FIN DE CAMBIOS ---
             
             $archivo->descripcion = $request->descripcion ?? 'Archivo subido: ' . $file->getClientOriginalName();
             $archivo->created_at = now(); // Establecer la fecha de creación
@@ -387,13 +380,9 @@ class ManagerProjectController extends Controller
             $foto->nombre = $photo->getClientOriginalName();
             $foto->idFase = $request->idFase;
             $foto->tipo = $tipoFoto;
-
-            // --- INICIO DE LA CORRECCIÓN ---
             
             // Obtener la URL pública completa del archivo desde el bucket
             $foto->ruta = Storage::disk('minio')->url($filePath);
-            
-            // --- FIN DE LA CORRECCIÓN ---
 
             $foto->descripcion = $request->descripcion ?? 'Foto subida: ' . $photo->getClientOriginalName();
             $foto->created_at = now(); // Establecer la fecha de creación
@@ -440,8 +429,6 @@ public function deleteFile(Request $request)
                 $path = $file->ruta; // $path contiene la URL completa
                 $file->delete();
             }
-    
-            // --- INICIO DE CAMBIOS ---
 
             // 1. Obtener la URL base de tu config de minio
             $baseUrl = config('filesystems.disks.minio.url');
@@ -457,8 +444,6 @@ public function deleteFile(Request $request)
             // Se elimina la comprobación 'exists()' ya que puede fallar por
             // permisos (ej. ListBucket) y es redundante.
             Storage::disk('minio')->delete($relativePath);
-
-            // --- FIN DE CAMBIOS ---
 
             // 2. Obtén el ID del usuario autenticado
             $usuarioId = Auth::id();
@@ -486,10 +471,10 @@ public function deleteFile(Request $request)
 
       public function obtenerModelo($idProyecto, $idFase)
     {
-        // Find the project to ensure it exists
+        // Buscar el proyecto para asegurarse de que existe
         $proyecto = Proyecto::findOrFail($idProyecto);
         
-        // Find the phase and its model
+        // Buscar la fase y su modelo
         $fase = Fase::where('idFase', $idFase)
                     ->where('idProyecto', $idProyecto)
                     ->firstOrFail();
@@ -501,7 +486,7 @@ public function deleteFile(Request $request)
             ], 404);
         }
 
-        // Obtener la URL base desde la configuración de la app (app.url en .env)
+        // Obtener la URL base desde la configuración de la app
         $baseUrl = config('app.url');
 
         return response()->json([
@@ -516,15 +501,13 @@ public function deleteFile(Request $request)
 
     public function descargarModelo($idProyecto, $idFase)
     {
-        // Find the project to ensure it exists
+        // Buscar el proyecto para asegurarse de que existe
         $proyecto = Proyecto::findOrFail($idProyecto);
         
-        // Find the phase and its model
+        // Buscar la fase y su modelo
         $fase = Fase::where('idFase', $idFase)
                     ->where('idProyecto', $idProyecto)
                     ->firstOrFail();
-        
-       // --- INICIO DE CAMBIOS ---
 
         if (empty($fase->modelo)) {
             abort(404, 'La fase no tiene modelo asociado');
@@ -545,20 +528,17 @@ public function deleteFile(Request $request)
         }
     
         // 4. Obtener el stream del archivo desde MinIO y devolverlo como descarga
-        // Esto maneja la descarga del archivo directamente desde MinIO al usuario
         $response = Storage::disk('minio')->response($relativePath, null, [
             'Content-Type' => 'model/gltf-binary',
-            // 'Content-Disposition' => 'attachment; filename="' . basename($relativePath) . '"' // Opcional
         ]);
         
-        // --- FIN DE CAMBIOS ---
     
         // Determinar el origen permitido basado en el entorno de la aplicación
         $allowedOrigin = (config('app.env') === 'production')
             ? config('app.frontend_url') // URL de producción desde config/app.php
             : 'http://localhost:3000';   // URL para desarrollo local
 
-        // Add CORS headers
+        // Agregar encabezados CORS
         $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
         $response->headers->set('Access-control-expose-headers', 'Content-Disposition');
@@ -640,11 +620,9 @@ public function deleteFile(Request $request)
             $cleanName = 'modelo_' . preg_replace('/[^a-z0-9]/', '', strtolower($originalName)) . '_' . time() . '.glb';
             Log::info('Nombre limpio generado:', ['cleanName' => $cleanName]);
 
-           // --- INICIO DE CAMBIOS ---
 
             // Verificar si hay un modelo anterior para eliminarlo
             if ($fase->modelo) {
-                // $fase->modelo contiene la URL completa (ej: https://.../bucket/proyectos/...)
                 $baseUrl = config('filesystems.disks.minio.url');
                 
                 if ($baseUrl && strpos($fase->modelo, $baseUrl) === 0) {
@@ -665,8 +643,6 @@ public function deleteFile(Request $request)
             $fase->modelo = Storage::disk('minio')->url($filePath);
             $fase->save();
             Log::info('URL del modelo guardada en la base de datos.', ['modelo' => $fase->modelo]);
-            
-            // --- FIN DE CAMBIOS ---
 
             // 2. Obtén el ID del usuario autenticado
             $usuarioId = Auth::id();

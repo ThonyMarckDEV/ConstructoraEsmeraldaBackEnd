@@ -83,7 +83,7 @@ class AuthController extends Controller
         $refreshPayload = [
             'iss' => config('app.url'),
             'iat' => $now,
-            'exp' => $now + $refreshTTL,  // Use the dynamic value here
+            'exp' => $now + $refreshTTL,
             'nbf' => $now,
             'jti' => Str::random(16),
             'sub' => $user->idUsuario,
@@ -123,10 +123,6 @@ class AuthController extends Controller
             'message' => 'Login exitoso',
             'access_token' => $accessToken,
             'refresh_token' => $refreshToken,
-            //'token_type' => 'bearer',
-            //'expires_in' => $expiresIn,
-            //'idToken' => $accessToken,
-            //'idUsuario' => $user->idUsuario,
             'idRefreshToken' => $refreshTokenId
         ], 200);
     }
@@ -237,7 +233,6 @@ class AuthController extends Controller
             ->first();
 
         // Si no existe o no coincide, significa que este token ya no es válido
-        // (posiblemente porque el usuario inició sesión en otro dispositivo)
         if (!$refreshToken) {
             return response()->json([
                 'valid' => false,

@@ -164,7 +164,7 @@ class ProyectoController extends Controller
                 }
             }
             
-             // Update or create the chat associated with the project
+             // Actualiza o crea el chat asociado al proyecto
             $chat = Chat::where('idProyecto', $proyecto->idProyecto)->first();
             if ($chat) {
                 $chat->update([

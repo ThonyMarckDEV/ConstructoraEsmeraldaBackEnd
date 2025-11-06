@@ -16,10 +16,8 @@ use Illuminate\Support\Facades\Validator;
 class ClientController extends Controller
 {
 
-
-    //CRUD OF CLIENT 
       /**
-     * Display a listing of the clients.
+     * Lista de Clientes
      */
     public function index()
     {
@@ -37,7 +35,7 @@ class ClientController extends Controller
     }
 
     /**
-     * Store a newly created client in storage.
+     * Almacenar un nuevo cliente en la base de datos.
      */
     public function store(Request $request)
     {
@@ -106,7 +104,7 @@ class ClientController extends Controller
     }
 
     /**
-     * Display the specified client.
+     * Mostrar el cliente especificado.
      */
     public function show($id)
     {
@@ -123,7 +121,7 @@ class ClientController extends Controller
     }
 
     /**
-     * Update the specified client in storage.
+     * Actualizar el cliente especificado en la base de datos.
      */
     public function update(Request $request, $id)
     {
@@ -215,7 +213,7 @@ class ClientController extends Controller
     }
 
     /**
-     * Remove the specified client from storage.
+     * Remover (desactivar) el cliente especificado.
      */
     public function destroy($id)
     {
@@ -224,7 +222,7 @@ class ClientController extends Controller
                          ->where('idUsuario', $id)
                          ->firstOrFail();
             
-            // Check for active projects
+            // Verificar si el cliente está asociado a un proyecto en progreso
             $activeProject = Proyecto::where('idCliente', $id)
                                     ->where('estado', 'En Progreso')
                                     ->exists();
@@ -235,7 +233,7 @@ class ClientController extends Controller
                 ], 400);
             }
             
-            // Soft delete by changing estado to inactivo
+            // Desactivar el cliente
             $cliente->update(['estado' => 'inactivo']);
             
             return response()->json(['message' => 'Cliente desactivado exitosamente']);
